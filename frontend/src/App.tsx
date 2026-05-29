@@ -9,6 +9,7 @@ import {
   sendCommand,
 } from "./api/client";
 import EventDetail from "./components/EventDetail";
+import { classifyConflictReply } from "./lib/intent";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useReminders } from "./hooks/useReminders";
@@ -26,18 +27,6 @@ type Pending =
     }
   | { kind: "conflict"; data: Record<string, unknown> };
 
-// 冲突回复的肯定词（接受建议）与坚持词（坚持原时间）。先判坚持（更具体）。
-const AFFIRM_WORDS = [
-  "好", "好的", "行", "可以", "改吧", "换吧", "改到", "同意",
-  "没问题", "听你的", "换", "嗯", "对",
-];
-const INSIST_WORDS = [
-  "就这个", "就用", "不改", "不用改", "不换", "还是原来", "坚持", "就原",
-];
-
-function matchAny(text: string, words: string[]): boolean {
-  return words.some((w) => text.includes(w));
-}
 
 const WELCOME: ChatMessage = {
   id: "welcome",
@@ -114,11 +103,12 @@ export default function App() {
         pending.newValues
       );
     }
-    // conflict：先判坚持，再判肯定，都不是则当新指令
-    if (matchAny(text, INSIST_WORDS)) {
+    // conflict：分类回复——接受建议 / 坚持原时间 / 其它(当新指令)
+    const reply = classifyConflictReply(text);
+    if (reply === "insist") {
       return confirmCommand(pending.data, false);
     }
-    if (matchAny(text, AFFIRM_WORDS)) {
+    if (reply === "accept") {
       return confirmCommand(pending.data, true);
     }
     return null;
