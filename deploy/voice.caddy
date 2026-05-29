@@ -1,0 +1,24 @@
+# 语音日历站点配置（追加到共享 Caddy：复制到 /etc/caddy/conf.d/voice.caddy）。
+#
+# 同机三项目共用一个系统级 Caddy，通过 conf.d/*.caddy 各自加站点，互不干扰。
+# 本文件只新增本项目站点，不触碰主 Caddyfile 与其它项目配置。
+#
+# Caddy 见到域名（非 :80）会自动申请并续期 Let's Encrypt 证书 —— HTTPS 是浏览器
+# 麦克风权限的硬要求（见 BRIEF §3.6 / 复盘 D-02）。
+
+voice.qiniu.zdwktlj.top {
+	encode gzip
+
+	# 后端 API 反代到本服务（仅监听 127.0.0.1:8081）
+	@api path /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	# 其余走前端静态产物，SPA 回退到 index.html
+	handle {
+		root * /opt/voice-calendar/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}
