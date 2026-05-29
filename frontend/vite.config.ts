@@ -14,4 +14,15 @@ export default defineConfig({
       },
     },
   },
+  // preview（生产构建预览）也走同样代理，便于在 VM 上整体验证。
+  preview: {
+    host: true,
+    port: 4173,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8081",
+        changeOrigin: true,
+      },
+    },
+  },
 });
