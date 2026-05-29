@@ -59,6 +59,32 @@ def test_range_this_month():
     assert e.date() == datetime(2026, 5, 31).date()
 
 
+def test_range_last_month():
+    s, e, label, multi = _view_range("上个月", NOW)
+    assert label == "上个月" and multi is True
+    assert s.date() == datetime(2026, 4, 1).date()
+    assert e.date() == datetime(2026, 4, 30).date()
+
+
+def test_specific_month_name_not_current_month():
+    # "六月有什么安排" 应是 6 月范围，绝不能误判成当前 5 月
+    s, e, label, multi = _view_range("六月有什么安排", NOW)
+    assert label == "6月" and multi is True
+    assert s.date() == datetime(2026, 6, 1).date()
+    assert e.date() == datetime(2026, 6, 30).date()
+
+
+def test_specific_month_arabic():
+    s, e, label, multi = _view_range("7月", NOW)
+    assert s.date() == datetime(2026, 7, 1).date()
+
+
+def test_month_day_is_single_day_not_range():
+    # "六月十八号" 带具体日 → 不是月范围（交给单日逻辑）
+    _, _, _, multi = _view_range("六月十八号", NOW)
+    assert multi is False
+
+
 def test_specific_weekday_still_single_day():
     # "下周三" 带具体星期几 → 单日，不是周范围
     s, e, label, multi = _view_range("下周三", NOW)
