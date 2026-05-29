@@ -28,6 +28,12 @@ export function useReminders() {
   }
 
   useEffect(() => {
+    // 仅在已授权时才轮询。否则 /due 会把到期提醒标记已发却无法弹出，
+    // 导致授权前到期的提醒被静默消费、永久丢失。
+    if (permission !== "granted") {
+      return;
+    }
+
     async function poll() {
       try {
         const resp = await fetch("/api/reminders/due");
@@ -45,14 +51,9 @@ export function useReminders() {
 
     function showNotification(r: DueReminder) {
       const timeStr = r.start_at.replace("T", " ").slice(5, 16);
-      if (
-        typeof Notification !== "undefined" &&
-        Notification.permission === "granted"
-      ) {
-        new Notification("日程提醒", {
-          body: `${timeStr} · ${r.title}`,
-        });
-      }
+      new Notification("日程提醒", {
+        body: `${timeStr} · ${r.title}`,
+      });
     }
 
     // 立即拉一次 + 定时轮询
@@ -63,7 +64,7 @@ export function useReminders() {
         clearInterval(timerRef.current);
       }
     };
-  }, []);
+  }, [permission]);
 
   return { permission, enable };
 }
