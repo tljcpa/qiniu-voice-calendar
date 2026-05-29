@@ -3,9 +3,11 @@
 > 七牛云 × XEngineer 暑期实训营 · 题目一作品
 > 以**语音交互为核心**的日历管理工具——边走路、开车、做饭时，一句话搞定加 / 删 / 查 / 改日程。
 
-- 🎬 **演示视频**：_待上传（B 站）_
-- 🌐 **在线试用**：https://voice.qiniu.zdwktlj.top
-- 📐 **架构文档**：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **在线试用**：https://voice.qiniu.zdwktlj.top
+- **演示视频**：_待上传（B 站）_
+- **架构文档**：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+![语音日历界面](docs/screenshot.png)
 
 > 提示：在线 Demo 用文字输入框即可体验完整流程；语音功能需在 HTTPS 页面授权麦克风。
 
