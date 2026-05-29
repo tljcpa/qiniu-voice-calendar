@@ -3,6 +3,7 @@ import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
 import { fetchEvents, sendCommand } from "./api/client";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import type { CalendarEvent, ChatMessage } from "./types";
 
 const WELCOME: ChatMessage = {
@@ -22,6 +23,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
   const speech = useSpeechRecognition();
+  const tts = useSpeechSynthesis();
   // 识别中的临时气泡 id
   const interimIdRef = useRef<string | null>(null);
 
@@ -54,6 +56,8 @@ export default function App() {
         text: resp.speech,
         events: resp.events,
       });
+      // 语音闭环：朗读助手回应（亮点2）
+      tts.speak(resp.speech);
       // 任何可能改变日程的意图后刷新日历
       await refreshEvents();
     } catch (err) {
@@ -121,7 +125,11 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header />
+      <Header
+        ttsEnabled={tts.enabled}
+        speaking={tts.speaking}
+        onToggleTts={tts.toggleEnabled}
+      />
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-5">
         <section className="min-h-0 lg:col-span-3">
           <ConversationPanel
@@ -141,7 +149,13 @@ export default function App() {
   );
 }
 
-function Header() {
+interface HeaderProps {
+  ttsEnabled: boolean;
+  speaking: boolean;
+  onToggleTts: () => void;
+}
+
+function Header({ ttsEnabled, speaking, onToggleTts }: HeaderProps) {
   return (
     <header className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet shadow-glow">
@@ -163,9 +177,52 @@ function Header() {
           Azure 工业级中文语音 · 自然语言时间解析 · 对话式日程管理
         </p>
       </div>
-      <span className="ml-auto rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-3 py-1 text-xs text-neon-cyan">
-        语音交互为核心
-      </span>
+      <div className="ml-auto flex items-center gap-3">
+        {/* 语音回复开关：体现"语音闭环"卖点 */}
+        <button
+          type="button"
+          onClick={onToggleTts}
+          aria-label={ttsEnabled ? "关闭语音回复" : "开启语音回复"}
+          className={[
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
+            ttsEnabled
+              ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
+              : "border-white/10 bg-ink-700/60 text-slate-400",
+          ].join(" ")}
+        >
+          <SpeakerIcon on={ttsEnabled} pulsing={speaking} />
+          {ttsEnabled ? "语音回复 开" : "语音回复 关"}
+        </button>
+        <span className="rounded-full border border-neon-violet/30 bg-neon-violet/10 px-3 py-1 text-xs text-neon-violet">
+          语音交互为核心
+        </span>
+      </div>
     </header>
+  );
+}
+
+function SpeakerIcon({ on, pulsing }: { on: boolean; pulsing: boolean }) {
+  const color = on ? "#22d3ee" : "#64748b";
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      className={pulsing ? "animate-pulse" : ""}
+    >
+      <path
+        d="M4 9v6h4l5 4V5L8 9H4z"
+        fill={color}
+      />
+      {on && (
+        <path
+          d="M16 8a5 5 0 0 1 0 8"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
   );
 }
