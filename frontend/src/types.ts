@@ -26,6 +26,8 @@ export interface CommandResponse {
   events: CalendarEvent[];
   /** update 澄清时待应用的新值，多轮 resolve 时原样回传 */
   pending_new_values?: Record<string, unknown> | null;
+  /** add 冲突时待建事件与建议时间，用户答"好/就这个"时回传 confirm */
+  pending_conflict?: Record<string, unknown> | null;
   error?: string;
 }
 

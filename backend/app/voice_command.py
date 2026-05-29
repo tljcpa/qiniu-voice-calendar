@@ -35,11 +35,14 @@ def _response(
     candidates: Optional[list] = None,
     events: Optional[list] = None,
     pending_new_values: Optional[dict] = None,
+    pending_conflict: Optional[dict] = None,
 ) -> dict:
     """统一组装响应。
 
     pending_new_values：update 澄清时把待应用的新值一并回传，
     前端在下一轮 resolve 时原样带回，实现多轮澄清的指代消解。
+    pending_conflict：add 冲突时回传待建事件与建议时间，
+    前端在用户答"好/就这个"时走 confirm，实现冲突的对话接受。
     """
     return {
         "intent": intent,
@@ -50,6 +53,7 @@ def _response(
         "candidates": candidates or [],
         "events": events or [],
         "pending_new_values": pending_new_values,
+        "pending_conflict": pending_conflict,
     }
 
 
@@ -63,6 +67,54 @@ def _day_range(dt: datetime):
     start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
     end = dt.replace(hour=23, minute=59, second=59, microsecond=0)
     return (start, end)
+
+
+def _create_one(session, title, start, location, attendees, reminder_min):
+    """创建单个事件，并按需挂提醒。供 add 与冲突确认复用。"""
+    ev = crud.create_event(
+        session,
+        title=title,
+        start_at=start,
+        location=location,
+        attendees=attendees or [],
+    )
+    if isinstance(reminder_min, int) and reminder_min > 0:
+        crud.create_reminder(
+            session,
+            event_id=ev.id,
+            remind_at=start - timedelta(minutes=reminder_min),
+        )
+    return ev
+
+
+def handle_confirm(data: dict, accept_suggestion: bool, session: Session) -> dict:
+    """冲突后用户的对话决定：接受建议时间 or 坚持原时间强建。
+
+    data 为上一轮 add 冲突回传的 pending_conflict。
+    accept_suggestion=True → 用 suggested_start；False → 用 original_start（强建）。
+    """
+    title = data.get("title") or "新日程"
+    location = data.get("location")
+    attendees = data.get("attendees") or []
+    reminder_min = data.get("reminder_min")
+
+    if accept_suggestion:
+        start_iso = data.get("suggested_start")
+        if not start_iso:
+            return _response("add", speech="没有可用的建议时间，换个时间好吗？", ok=False)
+    else:
+        start_iso = data.get("original_start")
+
+    if not start_iso:
+        return _response("add", speech="信息不全，请重新说一次", ok=False)
+
+    start = datetime.fromisoformat(start_iso)
+    ev = _create_one(session, title, start, location, attendees, reminder_min)
+    if accept_suggestion:
+        speech = f"好的，已改到{_fmt_dt(start)}的{title}"
+    else:
+        speech = f"已按原时间添加{_fmt_dt(start)}的{title}（注意有时间冲突）"
+    return _response("add", speech=speech, events=[ev.to_dict()])
 
 
 def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> dict:
@@ -91,8 +143,9 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
     datetimes = [datetime.fromisoformat(s) for s in time_result["datetimes"]]
     location = parsed.get("location")
     attendees = parsed.get("attendees") or []
+    reminder_min = parsed.get("reminder_before_minutes")
 
-    # 单个事件且冲突且未强制：不创建，给建议
+    # 单个事件且冲突且未强制：不创建，给建议（回传 pending_conflict 供前端对话接受）
     if len(datetimes) == 1 and not force:
         start = datetimes[0]
         end = start + timedelta(hours=1)
@@ -100,11 +153,20 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
         if conflict["has_conflict"]:
             clash_title = conflict["conflicts"][0]["title"]
             speech = f"这个时间和你的{clash_title}冲突了"
-            if conflict["suggestion"]:
-                sug = datetime.fromisoformat(conflict["suggestion"])
+            suggested_iso = conflict["suggestion"]
+            if suggested_iso:
+                sug = datetime.fromisoformat(suggested_iso)
                 speech += f"，要不要改到{_fmt_dt(sug)}？"
             else:
                 speech += "，换个时间好吗？"
+            pending_conflict = {
+                "title": title,
+                "location": location,
+                "attendees": attendees,
+                "reminder_min": reminder_min if isinstance(reminder_min, int) else None,
+                "original_start": start.isoformat(),
+                "suggested_start": suggested_iso,
+            }
             return _response(
                 "add",
                 speech=speech,
@@ -112,25 +174,13 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
                 needs_clarification=True,
                 clarification="时间冲突",
                 candidates=conflict["conflicts"],
+                pending_conflict=pending_conflict,
             )
 
     # 创建（循环则多个）；若指定提前提醒分钟数，挂提醒
-    reminder_min = parsed.get("reminder_before_minutes")
     created = []
     for start in datetimes:
-        ev = crud.create_event(
-            session,
-            title=title,
-            start_at=start,
-            location=location,
-            attendees=attendees,
-        )
-        if isinstance(reminder_min, int) and reminder_min > 0:
-            crud.create_reminder(
-                session,
-                event_id=ev.id,
-                remind_at=start - timedelta(minutes=reminder_min),
-            )
+        ev = _create_one(session, title, start, location, attendees, reminder_min)
         created.append(ev.to_dict())
 
     if len(created) == 1:

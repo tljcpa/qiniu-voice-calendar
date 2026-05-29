@@ -63,6 +63,19 @@ export async function resolveCommand(
   return handle<CommandResponse>(resp);
 }
 
+/** 冲突确认：接受建议时间 or 坚持原时间强建。 */
+export async function confirmCommand(
+  data: Record<string, unknown>,
+  acceptSuggestion: boolean
+): Promise<CommandResponse> {
+  const resp = await fetch(`${BASE}/api/voice/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data, accept_suggestion: acceptSuggestion }),
+  });
+  return handle<CommandResponse>(resp);
+}
+
 /** 取 Azure Speech 短时令牌（浏览器 SDK 用）。 */
 export async function fetchSpeechToken(): Promise<SpeechToken> {
   const resp = await fetch(`${BASE}/api/speech/token`, { method: "POST" });

@@ -1,18 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
-import { fetchEvents, resolveCommand, sendCommand } from "./api/client";
+import {
+  confirmCommand,
+  fetchEvents,
+  resolveCommand,
+  sendCommand,
+} from "./api/client";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useReminders } from "./hooks/useReminders";
 import type { CalendarEvent, ChatMessage, CommandResponse } from "./types";
 
-// 待澄清状态：上一轮系统反问"要哪一个"时，记住意图与候选，
-// 下一句用户指代（"第一个/下午那个"）走 resolve 而非新指令。
-interface Pending {
-  intent: string;
-  candidates: CalendarEvent[];
-  newValues: Record<string, unknown> | null;
+// 待续状态：上一轮系统反问后，记住上下文，下一句据此续接而非当新指令。
+// - clarify：歧义澄清的候选（删/改"要哪一个"）→ 下一句走 resolve 指代消解
+// - conflict：add 冲突的待建事件 → 下一句"好/就这个"走 confirm
+type Pending =
+  | {
+      kind: "clarify";
+      intent: string;
+      candidates: CalendarEvent[];
+      newValues: Record<string, unknown> | null;
+    }
+  | { kind: "conflict"; data: Record<string, unknown> };
+
+// 冲突回复的肯定词（接受建议）与坚持词（坚持原时间）。先判坚持（更具体）。
+const AFFIRM_WORDS = [
+  "好", "好的", "行", "可以", "改吧", "换吧", "改到", "同意",
+  "没问题", "听你的", "换", "嗯", "对",
+];
+const INSIST_WORDS = [
+  "就这个", "就用", "不改", "不用改", "不换", "还是原来", "坚持", "就原",
+];
+
+function matchAny(text: string, words: string[]): boolean {
+  return words.some((w) => text.includes(w));
 }
 
 const WELCOME: ChatMessage = {
@@ -55,18 +77,48 @@ export default function App() {
     setMessages((prev) => [...prev, msg]);
   }
 
-  // 根据响应更新"待澄清"状态：delete/update 反问候选时记住，否则清空
+  // 根据响应更新"待续"状态
   function updatePending(resp: CommandResponse) {
     const isPickable = resp.intent === "delete" || resp.intent === "update";
     if (resp.needs_clarification && resp.candidates.length > 0 && isPickable) {
       setPending({
+        kind: "clarify",
         intent: resp.intent,
         candidates: resp.candidates,
         newValues: resp.pending_new_values ?? null,
       });
+    } else if (
+      resp.intent === "add" &&
+      resp.needs_clarification &&
+      resp.pending_conflict
+    ) {
+      setPending({ kind: "conflict", data: resp.pending_conflict });
     } else {
       setPending(null);
     }
+  }
+
+  // 在"待续"上下文里续接本句；返回 null 表示应作为全新指令处理
+  async function continuePending(text: string): Promise<CommandResponse | null> {
+    if (!pending) {
+      return null;
+    }
+    if (pending.kind === "clarify") {
+      return resolveCommand(
+        text,
+        pending.intent,
+        pending.candidates,
+        pending.newValues
+      );
+    }
+    // conflict：先判坚持，再判肯定，都不是则当新指令
+    if (matchAny(text, INSIST_WORDS)) {
+      return confirmCommand(pending.data, false);
+    }
+    if (matchAny(text, AFFIRM_WORDS)) {
+      return confirmCommand(pending.data, true);
+    }
+    return null;
   }
 
   // 处理一条最终指令文本（语音或打字）
@@ -74,16 +126,9 @@ export default function App() {
     appendMessage({ id: nextId(), role: "user", text });
     setBusy(true);
     try {
-      let resp: CommandResponse;
-      if (pending) {
-        // 有待澄清：本句作为指代解析，选定上一轮候选
-        resp = await resolveCommand(
-          text,
-          pending.intent,
-          pending.candidates,
-          pending.newValues
-        );
-      } else {
+      let resp = await continuePending(text);
+      if (resp === null) {
+        // 无待续上下文或冲突回复非接受/坚持 → 当作全新指令
         resp = await sendCommand(text);
       }
       appendMessage({
