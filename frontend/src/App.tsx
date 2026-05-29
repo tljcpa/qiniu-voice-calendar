@@ -1,27 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
-import { fetchEvents } from "./api/client";
+import { fetchEvents, sendCommand } from "./api/client";
+import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import type { CalendarEvent, ChatMessage } from "./types";
 
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
-  text: "你好，我是你的语音日历助手。点下方按钮，对我说“明天下午三点开产品评审会”试试。",
+  text: "你好，我是你的语音日历助手。点下方按钮，对我说“明天下午三点开产品评审会”试试，也可以直接打字。",
 };
+
+let msgSeq = 1;
+function nextId() {
+  msgSeq += 1;
+  return `m${msgSeq}`;
+}
 
 export default function App() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [messages] = useState<ChatMessage[]>([WELCOME]);
-  // PR10 录音按钮为视觉骨架，PR11 接入 Azure Speech
-  const [listening] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+  const [busy, setBusy] = useState(false);
+  const speech = useSpeechRecognition();
+  // 识别中的临时气泡 id
+  const interimIdRef = useRef<string | null>(null);
 
   async function refreshEvents() {
     try {
       const data = await fetchEvents();
       setEvents(data);
     } catch (err) {
-      // 后端未起时不致页面崩溃，仅留空日历
       console.error("拉取事件失败", err);
     }
   }
@@ -30,20 +38,101 @@ export default function App() {
     refreshEvents();
   }, []);
 
+  function appendMessage(msg: ChatMessage) {
+    setMessages((prev) => [...prev, msg]);
+  }
+
+  // 处理一条最终指令文本（语音或打字）
+  async function processCommand(text: string) {
+    appendMessage({ id: nextId(), role: "user", text });
+    setBusy(true);
+    try {
+      const resp = await sendCommand(text);
+      appendMessage({
+        id: nextId(),
+        role: "assistant",
+        text: resp.speech,
+        events: resp.events,
+      });
+      // 任何可能改变日程的意图后刷新日历
+      await refreshEvents();
+    } catch (err) {
+      appendMessage({
+        id: nextId(),
+        role: "assistant",
+        text: `出错了：${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 录音按钮：开始/停止语音识别
+  function handleMic() {
+    if (speech.listening) {
+      speech.stop();
+      return;
+    }
+    interimIdRef.current = null;
+    speech.start({
+      onInterim: (interim) => {
+        // 维护一条临时气泡，实时更新识别文本
+        setMessages((prev) => {
+          const id = interimIdRef.current;
+          if (id) {
+            return prev.map((m) =>
+              m.id === id ? { ...m, text: interim } : m
+            );
+          }
+          const newId = nextId();
+          interimIdRef.current = newId;
+          return [
+            ...prev,
+            { id: newId, role: "user", text: interim, interim: true },
+          ];
+        });
+      },
+      onFinal: (finalText) => {
+        // 移除临时气泡，按正式指令处理
+        const tempId = interimIdRef.current;
+        interimIdRef.current = null;
+        if (tempId) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        }
+        if (finalText && finalText.trim()) {
+          processCommand(finalText.trim());
+        }
+      },
+      onError: (msg) => {
+        const tempId = interimIdRef.current;
+        interimIdRef.current = null;
+        if (tempId) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        }
+        appendMessage({ id: nextId(), role: "assistant", text: msg });
+      },
+    });
+  }
+
+  let hint = "点击说话，或在下方打字";
+  if (!speech.supported) {
+    hint = "当前环境不支持麦克风，请用下方文字输入";
+  }
+
   return (
     <div className="flex h-full flex-col">
       <Header />
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-5">
-        {/* 对话为主角：占 3 列 */}
         <section className="min-h-0 lg:col-span-3">
           <ConversationPanel
             messages={messages}
-            listening={listening}
-            hint="语音功能将在下个迭代接入"
-            onMic={() => {}}
+            listening={speech.listening}
+            hint={hint}
+            busy={busy}
+            onMic={handleMic}
+            onSend={processCommand}
           />
         </section>
-        {/* 日历同屏可见：占 2 列 */}
         <section className="min-h-0 lg:col-span-2">
           <CalendarView events={events} />
         </section>
