@@ -1,0 +1,28 @@
+# 语音日历部署编排（占位骨架，PR13 完善）。
+#
+# 三项目共用一台 Azure VM，故本项目用：
+#   - 独立 compose project name: voice-calendar（启动时 -p voice-calendar）
+#   - 后端独立端口 8081
+#   - Caddy 负责 voice.qiniu.zdwktlj.top 的自动 HTTPS（PR13 接入）
+#
+# 当前仅定义 backend，frontend 与 caddy 待前端脚手架与部署 PR 补齐。
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: voice-calendar-backend:latest
+    container_name: voice-calendar-backend
+    restart: unless-stopped
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8081
+      # 真实凭证在部署时通过 .env 或环境注入，绝不写进本文件。
+      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY:-}
+      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION:-eastus2}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    ports:
+      - "8081:8081"
+
+  # frontend:  # PR13 接入（Vite 构建产物由 Caddy 托管）
+  # caddy:     # PR13 接入（自动签 Let's Encrypt 证书）
