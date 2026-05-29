@@ -35,6 +35,11 @@ class Settings:
             origin.strip() for origin in cors_raw.split(",") if origin.strip()
         ]
 
+        # 数据库（PR7 起使用）。默认 SQLite 单文件，部署挂卷持久化。
+        self.database_url: str = os.getenv(
+            "DATABASE_URL", "sqlite:///./voice_calendar.db"
+        )
+
         # Azure Speech（核心语音能力，PR4 起使用）
         self.azure_speech_key: str = os.getenv("AZURE_SPEECH_KEY", "")
         self.azure_speech_region: str = os.getenv("AZURE_SPEECH_REGION", "eastus2")

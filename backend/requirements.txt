@@ -21,8 +21,10 @@ azure-cognitiveservices-speech>=1.37,<2.0
 # 仅作规则层未命中的边角兜底；实测中文能力弱（见复盘 L-04）。
 dateparser>=1.2,<2.0
 
-# --- 数据库 / 调度（PR7、PR14 启用）---
-# SQLAlchemy>=2.0,<3.0
+# --- 数据库（PR7）---
+SQLAlchemy>=2.0,<3.0
+
+# --- 调度（PR14 启用）---
 # APScheduler>=3.10,<4.0
 
 # --- 测试 ---

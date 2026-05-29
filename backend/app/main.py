@@ -8,11 +8,24 @@ PR1 仅装配最小骨架：
 后续 PR 在此基础上挂载语音、意图解析、日历 CRUD、WebSocket 等路由。
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import speech as speech_api
 from app.config import settings
+from app.db import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动时建表。
+
+    用 lifespan 而非 import 期建表，避免 mock 单测（不进入服务生命周期）误建库文件。
+    """
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
@@ -25,6 +38,7 @@ def create_app() -> FastAPI:
         title="语音日历 API",
         version=settings.app_version,
         description="以语音交互为核心的日历管理工具后端",
+        lifespan=lifespan,
     )
 
     # 跨域：前端（Vite 开发服务器 / 正式域名）与后端不同源，必须放行。
