@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(
+      1200px 600px at 20% -10%,
+      rgba(34, 211, 238, 0.12),
+      transparent
+    ),
+    radial-gradient(
+      900px 500px at 100% 0%,
+      rgba(168, 85, 247, 0.12),
+      transparent
+    ),
+    #0a0e1a;
+  color: #e5edf5;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ---------- FullCalendar 深色主题覆盖 ---------- */
+.fc {
+  --fc-border-color: rgba(148, 163, 184, 0.15);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(30, 39, 66, 0.4);
+  --fc-today-bg-color: rgba(34, 211, 238, 0.08);
+  --fc-event-bg-color: #3b82f6;
+  --fc-event-border-color: transparent;
+  font-size: 0.85rem;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e5edf5;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+.fc .fc-button {
+  background: rgba(30, 39, 66, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.fc .fc-button:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.fc .fc-event {
+  border-radius: 6px;
+  padding: 1px 4px;
+  border-left: 3px solid #22d3ee;
+  box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
+  cursor: pointer;
+}
+
+/* 细滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 4px;
+}
