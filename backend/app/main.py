@@ -11,6 +11,7 @@ PR1 仅装配最小骨架：
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import speech as speech_api
 from app.config import settings
 
 
@@ -60,6 +61,9 @@ def create_app() -> FastAPI:
                 "llm": settings.llm_configured(),
             },
         }
+
+    # 业务路由装配
+    app.include_router(speech_api.router)
 
     return app
 

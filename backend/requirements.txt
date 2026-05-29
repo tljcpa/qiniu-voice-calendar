@@ -9,8 +9,13 @@ uvicorn[standard]>=0.27,<1.0
 # --- LLM 客户端（PR3）---
 openai>=1.30,<2.0
 
-# --- Azure 语音（PR4 启用）---
-# azure-cognitiveservices-speech>=1.37,<2.0
+# --- HTTP 客户端（PR4：token 签发用，运行时依赖）---
+httpx>=0.27,<1.0
+
+# --- Azure 语音（PR4）---
+# 服务端 TTS/ASR 用；token 签发只用 httpx 不依赖此 SDK。
+# 本机内存受限不强制安装，部署镜像与 VM 安装。
+azure-cognitiveservices-speech>=1.37,<2.0
 
 # --- 中文时间解析（PR6 启用）---
 # dateparser>=1.2,<2.0
@@ -21,4 +26,3 @@ openai>=1.30,<2.0
 
 # --- 测试 ---
 pytest>=8.0,<9.0
-httpx>=0.27,<1.0
