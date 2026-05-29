@@ -100,6 +100,57 @@ body {
   border-color: #1f242d;
 }
 
+/* ---------- 周/日（timeGrid）视图 ---------- */
+.fc .fc-timegrid-slot-label-cushion,
+.fc .fc-timegrid-axis-cushion {
+  color: #616773;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+}
+
+.fc .fc-timegrid-slot {
+  height: 2.2em; /* 略密 */
+}
+
+/* 当前时刻指示线用强调色 */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #c9a25a;
+}
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #c9a25a;
+  background: #c9a25a;
+}
+
+/* 周视图列头：星期 + 日期 */
+.fc .fc-timegrid .fc-col-header-cell-cushion {
+  padding: 4px 0;
+}
+.fc .fc-day-today .fc-col-header-cell-cushion {
+  color: #c9a25a;
+}
+
+/* timeGrid 事件块：实底 + 强调色左条，文字用等宽对齐时间 */
+.fc .fc-timegrid-event {
+  background: #1b1f27;
+  border: none;
+  border-left: 2px solid #c9a25a;
+  box-shadow: none;
+}
+.fc .fc-timegrid-event .fc-event-time {
+  font-family: "IBM Plex Mono", monospace;
+  color: #c9a25a;
+  font-size: 0.7rem;
+}
+.fc .fc-timegrid-event .fc-event-title {
+  color: #e3e6ea;
+}
+
+/* 全天行标签 */
+.fc .fc-timegrid-axis-frame {
+  color: #616773;
+  font-size: 0.7rem;
+}
+
 /* 细滚动条 */
 ::-webkit-scrollbar {
   width: 7px;
