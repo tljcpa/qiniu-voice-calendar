@@ -6,8 +6,8 @@
 fastapi>=0.110,<1.0
 uvicorn[standard]>=0.27,<1.0
 
-# --- LLM 客户端（PR3 启用）---
-# openai>=1.30,<2.0
+# --- LLM 客户端（PR3）---
+openai>=1.30,<2.0
 
 # --- Azure 语音（PR4 启用）---
 # azure-cognitiveservices-speech>=1.37,<2.0
