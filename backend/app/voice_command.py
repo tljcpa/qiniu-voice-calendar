@@ -108,7 +108,8 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
                 candidates=conflict["conflicts"],
             )
 
-    # 创建（循环则多个）
+    # 创建（循环则多个）；若指定提前提醒分钟数，挂提醒
+    reminder_min = parsed.get("reminder_before_minutes")
     created = []
     for start in datetimes:
         ev = crud.create_event(
@@ -118,6 +119,12 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
             location=location,
             attendees=attendees,
         )
+        if isinstance(reminder_min, int) and reminder_min > 0:
+            crud.create_reminder(
+                session,
+                event_id=ev.id,
+                remind_at=start - timedelta(minutes=reminder_min),
+            )
         created.append(ev.to_dict())
 
     if len(created) == 1:
@@ -125,6 +132,8 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
         speech = f"已添加，{_fmt_dt(start)}的{title}"
         if location:
             speech += f"，地点{location}"
+        if isinstance(reminder_min, int) and reminder_min > 0:
+            speech += f"，会提前{reminder_min}分钟提醒你"
     else:
         speech = f"已添加{len(created)}个{title}日程"
     return _response("add", speech=speech, events=created)

@@ -4,6 +4,7 @@ import ConversationPanel from "./components/ConversationPanel";
 import { fetchEvents, sendCommand } from "./api/client";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
+import { useReminders } from "./hooks/useReminders";
 import type { CalendarEvent, ChatMessage } from "./types";
 
 const WELCOME: ChatMessage = {
@@ -24,6 +25,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const speech = useSpeechRecognition();
   const tts = useSpeechSynthesis();
+  const reminders = useReminders();
   // 识别中的临时气泡 id
   const interimIdRef = useRef<string | null>(null);
 
@@ -129,6 +131,8 @@ export default function App() {
         ttsEnabled={tts.enabled}
         speaking={tts.speaking}
         onToggleTts={tts.toggleEnabled}
+        remindersOn={reminders.permission === "granted"}
+        onEnableReminders={reminders.enable}
       />
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-5">
         <section className="min-h-0 lg:col-span-3">
@@ -153,9 +157,17 @@ interface HeaderProps {
   ttsEnabled: boolean;
   speaking: boolean;
   onToggleTts: () => void;
+  remindersOn: boolean;
+  onEnableReminders: () => void;
 }
 
-function Header({ ttsEnabled, speaking, onToggleTts }: HeaderProps) {
+function Header({
+  ttsEnabled,
+  speaking,
+  onToggleTts,
+  remindersOn,
+  onEnableReminders,
+}: HeaderProps) {
   return (
     <header className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet shadow-glow">
@@ -178,6 +190,21 @@ function Header({ ttsEnabled, speaking, onToggleTts }: HeaderProps) {
         </p>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        {/* 提醒开关：申请浏览器通知权限 */}
+        <button
+          type="button"
+          onClick={onEnableReminders}
+          aria-label="开启日程提醒"
+          className={[
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
+            remindersOn
+              ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
+              : "border-white/10 bg-ink-700/60 text-slate-400 hover:text-slate-200",
+          ].join(" ")}
+        >
+          <span aria-hidden="true">🔔</span>
+          {remindersOn ? "提醒 开" : "开启提醒"}
+        </button>
         {/* 语音回复开关：体现"语音闭环"卖点 */}
         <button
           type="button"
