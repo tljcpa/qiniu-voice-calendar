@@ -41,8 +41,11 @@ INTENT_SYSTEM_PROMPT = """\
 - 删除/取消/删掉/不要了/去掉 → delete。
 - 查/看/有什么安排/几点/今天忙吗 → view。
 - 改/挪/推迟/提前/换成/改到 → update。
-- 指令本身缺关键信息无法执行（add 缺时间、delete/update 找不到明确目标）→ clarify，
-  并在 clarification 写出要追问的话，在 missing 列出缺失槽位。
+- 删除/修改时：只要用户给出了**具体的事件名称或描述**（如"客户对接""羽毛球""产品评审会"），
+  即使你不知道库里是否存在、有几个，也要返回 delete/update，把该描述放进 target_query，
+  由系统查库决定要不要澄清。不要替系统编造"你有多个X"这类你无法知道的事实。
+- 仅当用户用**纯指代且没有任何具体名称**（如"那个""刚才那个""之前那个"）→ clarify。
+- add 缺时间也用 clarify，在 clarification 写要追问的话，missing 列缺失槽位。
 - 与日历无关或完全听不懂 → unknown。
 - time_expr 必须是用户原话里的时间短语，禁止你自己换算成具体日期。
 
@@ -56,8 +59,11 @@ few-shot 示例：
 用户：今天有什么安排
 输出：{"intent":"view","confidence":0.95,"title":null,"time_expr":"今天","location":null,"attendees":[],"reminder_before_minutes":null,"target_query":null,"new_values":null,"clarification":null,"missing":[]}
 
-用户：把那个会删了
-输出：{"intent":"clarify","confidence":0.6,"title":null,"time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":"那个会","new_values":null,"clarification":"你有多个会，想删除哪一个？","missing":["target"]}
+用户：把客户对接删了
+输出：{"intent":"delete","confidence":0.92,"title":null,"time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":"客户对接","new_values":null,"clarification":null,"missing":[]}
+
+用户：把那个删了
+输出：{"intent":"clarify","confidence":0.5,"title":null,"time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":"那个","new_values":null,"clarification":"你指的是哪个日程？","missing":["target"]}
 
 用户：帮我加个会
 输出：{"intent":"clarify","confidence":0.7,"title":"会","time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":null,"new_values":null,"clarification":"这个会安排在什么时间？","missing":["time"]}
