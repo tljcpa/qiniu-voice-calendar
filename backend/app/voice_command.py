@@ -546,6 +546,14 @@ def handle_command(
     if now is None:
         now = datetime.now()
 
+    # 空/纯空白输入：直接友好回应，不浪费一次 LLM 调用（识别静音/误触常见）
+    if not text or not text.strip():
+        return _response(
+            "unknown",
+            speech="没听清，请再说一次",
+            ok=False,
+        )
+
     parsed = parse_intent(text, now_iso=now.isoformat(), llm=llm)
     intent = parsed["intent"]
 
