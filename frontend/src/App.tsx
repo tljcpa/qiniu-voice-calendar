@@ -329,14 +329,16 @@ function Header({
   return (
     <header className="flex items-center gap-4 border-b border-line bg-panel px-4 py-2">
       {/* 标识：极简字母组 + 名称，无渐变无图标光晕 */}
-      <div className="flex items-baseline gap-2">
+      <div className="flex shrink-0 items-baseline gap-2">
         <span className="font-mono text-sm font-semibold text-accent">VC</span>
-        <h1 className="text-sm font-semibold text-fg">语音日历</h1>
+        <h1 className="whitespace-nowrap text-sm font-semibold text-fg">
+          语音日历
+        </h1>
       </div>
-      {/* 引擎状态：功能性而非营销文案 */}
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-fg-dim">
+      {/* 引擎状态：功能性而非营销文案（窄屏隐藏文字保留点） */}
+      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-fg-dim">
         <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-        {engineLabel}
+        <span className="hidden sm:inline">{engineLabel}</span>
       </span>
       <div className="ml-auto flex items-center gap-2">
         <ToggleChip
