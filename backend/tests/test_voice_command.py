@@ -38,6 +38,25 @@ class FakeLLM:
         return self.payload
 
 
+class _RaisingLLM:
+    """若被调用就抛错——用于证明空输入短路、不触发 LLM。"""
+
+    def complete_json(self, messages, **kwargs):
+        raise AssertionError("空输入不应调用 LLM")
+
+
+def test_empty_text_short_circuits(session):
+    r = handle_command("", session=session, now=NOW, llm=_RaisingLLM())
+    assert r["ok"] is False
+    assert r["intent"] == "unknown"
+    assert "没听清" in r["speech"]
+
+
+def test_whitespace_text_short_circuits(session):
+    r = handle_command("   \n  ", session=session, now=NOW, llm=_RaisingLLM())
+    assert r["ok"] is False
+
+
 def test_add_success(session):
     llm = FakeLLM({"intent": "add", "title": "产品评审会", "time_expr": "明天下午三点"})
     r = handle_command("明天下午三点开产品评审会", session=session, now=NOW, llm=llm)
