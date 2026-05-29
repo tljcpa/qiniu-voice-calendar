@@ -63,6 +63,15 @@ export async function resolveCommand(
   return handle<CommandResponse>(resp);
 }
 
+/** 删除事件（图形化管理用）。 */
+export async function deleteEvent(id: number): Promise<void> {
+  const resp = await fetch(`${BASE}/api/events/${id}`, { method: "DELETE" });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(`API ${resp.status}: ${detail}`);
+  }
+}
+
 /** 冲突确认：接受建议时间 or 坚持原时间强建。 */
 export async function confirmCommand(
   data: Record<string, unknown>,
