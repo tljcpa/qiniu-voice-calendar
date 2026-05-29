@@ -28,17 +28,16 @@ function toFcEvents(events: CalendarEvent[]) {
 /** 日历视图：展示事件，语音操作的结果会实时反映到这里。 */
 export default function CalendarView({ events }: Props) {
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-ink-800/60 p-4 backdrop-blur">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-neon-cyan shadow-glow" />
-        <h2 className="text-sm font-semibold tracking-wide text-slate-200">
-          我的日历
+    <div className="flex h-full flex-col border border-line bg-panel">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+          日历
         </h2>
-        <span className="ml-auto text-xs text-slate-500">
-          共 {events.length} 个日程
+        <span className="ml-auto font-mono text-[11px] text-fg-dim">
+          {events.length} 个日程
         </span>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 p-3">
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"

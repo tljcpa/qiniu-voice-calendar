@@ -5,8 +5,8 @@ interface Props {
 }
 
 /**
- * 语音波形动效：录音时用 Web Audio AnalyserNode 实时绘制麦克风频谱条，
- * 把"语音"卖点可视化。拿不到麦克风时回退为正弦摆动的占位动画。
+ * 录音波形：录音时用 Web Audio AnalyserNode 实时绘制麦克风电平细条。
+ * 单一强调色（非渐变），克制。拿不到麦克风时回退轻微摆动占位。
  */
 export default function Waveform({ active }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -21,7 +21,6 @@ export default function Waveform({ active }: Props) {
     }
 
     let analyser: AnalyserNode | null = null;
-    // 显式 ArrayBuffer 泛型：TS 5.7 起 TypedArray 泛型化，getByteFrequencyData 要 Uint8Array<ArrayBuffer>
     let dataArray: Uint8Array<ArrayBuffer> | null = null;
     let phase = 0;
     let cancelled = false;
@@ -31,11 +30,6 @@ export default function Waveform({ active }: Props) {
       if (!canvas) {
         return;
       }
-      const g = canvas.getContext("2d");
-      if (!g) {
-        return;
-      }
-
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -57,22 +51,22 @@ export default function Waveform({ active }: Props) {
         source.connect(analyser);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
       } catch {
-        // 拿不到麦克风：保持 analyser 为空，draw 走占位动画
         analyser = null;
       }
 
       const draw = () => {
         const c = canvasRef.current;
-        const gg = c?.getContext("2d");
-        if (!c || !gg) {
+        const g = c?.getContext("2d");
+        if (!c || !g) {
           return;
         }
         const w = c.width;
         const h = c.height;
-        gg.clearRect(0, 0, w, h);
-        const bars = 28;
-        const gap = 3;
+        g.clearRect(0, 0, w, h);
+        const bars = 32;
+        const gap = 2;
         const barW = (w - gap * (bars - 1)) / bars;
+        g.fillStyle = "#c9a25a"; // 单一强调色
 
         for (let i = 0; i < bars; i++) {
           let v: number;
@@ -81,28 +75,20 @@ export default function Waveform({ active }: Props) {
             const idx = Math.floor((i / bars) * dataArray.length);
             v = dataArray[idx] / 255;
           } else {
-            // 占位：正弦波摆动
-            v = 0.3 + 0.35 * Math.abs(Math.sin(phase + i * 0.4));
+            v = 0.15 + 0.2 * Math.abs(Math.sin(phase + i * 0.4));
           }
-          const barH = Math.max(3, v * h);
+          const barH = Math.max(2, v * h);
           const x = i * (barW + gap);
           const y = (h - barH) / 2;
-          const grad = gg.createLinearGradient(0, y, 0, y + barH);
-          grad.addColorStop(0, "#22d3ee");
-          grad.addColorStop(1, "#a855f7");
-          gg.fillStyle = grad;
-          gg.beginPath();
-          gg.roundRect(x, y, barW, barH, barW / 2);
-          gg.fill();
+          g.fillRect(x, y, barW, barH);
         }
-        phase += 0.15;
+        phase += 0.12;
         rafRef.current = requestAnimationFrame(draw);
       };
       draw();
     }
 
     setup();
-
     return () => {
       cancelled = true;
       cleanup();
@@ -128,13 +114,5 @@ export default function Waveform({ active }: Props) {
   if (!active) {
     return null;
   }
-  return (
-    <canvas
-      ref={canvasRef}
-      width={260}
-      height={48}
-      className="rounded-lg"
-      aria-hidden="true"
-    />
-  );
+  return <canvas ref={canvasRef} width={220} height={28} aria-hidden="true" />;
 }

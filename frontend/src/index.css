@@ -14,75 +14,101 @@ body,
 }
 
 body {
-  background: radial-gradient(
-      1200px 600px at 20% -10%,
-      rgba(34, 211, 238, 0.12),
-      transparent
-    ),
-    radial-gradient(
-      900px 500px at 100% 0%,
-      rgba(168, 85, 247, 0.12),
-      transparent
-    ),
-    #0a0e1a;
-  color: #e5edf5;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* 纯净中性底色，无霓虹径向渐变 */
+  background: #0e1014;
+  color: #e3e6ea;
+  font-family: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei",
+    "Source Han Sans SC", system-ui, sans-serif;
+  font-feature-settings: "tnum" 1; /* 等宽数字，时间表格更整齐 */
 }
 
-/* ---------- FullCalendar 深色主题覆盖 ---------- */
+/* ---------- FullCalendar：克制中性深色，仅 today/事件用强调色 ---------- */
 .fc {
-  --fc-border-color: rgba(148, 163, 184, 0.15);
+  --fc-border-color: #272c36;
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: rgba(30, 39, 66, 0.4);
-  --fc-today-bg-color: rgba(34, 211, 238, 0.08);
-  --fc-event-bg-color: #3b82f6;
-  --fc-event-border-color: transparent;
-  font-size: 0.85rem;
+  --fc-neutral-bg-color: #1b1f27;
+  --fc-today-bg-color: rgba(201, 162, 90, 0.07);
+  --fc-event-bg-color: #1b1f27;
+  --fc-event-border-color: #272c36;
+  --fc-event-text-color: #e3e6ea;
+  font-size: 0.8rem;
 }
 
 .fc .fc-toolbar-title {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #e5edf5;
+  color: #e3e6ea;
+  letter-spacing: 0.01em;
 }
 
 .fc .fc-col-header-cell-cushion,
 .fc .fc-daygrid-day-number {
-  color: #94a3b8;
+  color: #9298a3;
   text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
 }
 
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #c9a25a;
+  font-weight: 600;
+}
+
+/* 工具栏按钮：扁平、硬线、无渐变无阴影 */
 .fc .fc-button {
-  background: rgba(30, 39, 66, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  color: #cbd5e1;
+  background: #15181e;
+  border: 1px solid #272c36;
+  color: #9298a3;
   text-transform: none;
   box-shadow: none;
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
 }
 
 .fc .fc-button:hover {
-  background: rgba(59, 130, 246, 0.3);
+  background: #1b1f27;
+  color: #e3e6ea;
 }
 
-.fc .fc-button-primary:not(:disabled).fc-button-active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: #221d12;
+  border-color: #5a4d30;
+  color: #c9a25a;
 }
 
-.fc .fc-event {
-  border-radius: 6px;
-  padding: 1px 4px;
-  border-left: 3px solid #22d3ee;
-  box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
+/* 事件：左侧强调色细条标识，无圆角光晕 */
+.fc .fc-event,
+.fc .fc-daygrid-event {
+  border-radius: 2px;
+  border: none;
+  border-left: 2px solid #c9a25a;
+  background: #1b1f27;
+  padding: 0 4px;
+  box-shadow: none;
   cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc .fc-event:hover {
+  background: #222730;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: #1f242d;
 }
 
 /* 细滚动条 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
-  border-radius: 4px;
+  background: #2a303b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
