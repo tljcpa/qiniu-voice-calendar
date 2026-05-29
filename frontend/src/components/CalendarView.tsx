@@ -6,6 +6,7 @@ import type { CalendarEvent } from "../types";
 
 interface Props {
   events: CalendarEvent[];
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 // 把后端事件映射为 FullCalendar 的输入结构。
@@ -25,8 +26,18 @@ function toFcEvents(events: CalendarEvent[]) {
   });
 }
 
-/** 日历视图：展示事件，语音操作的结果会实时反映到这里。 */
-export default function CalendarView({ events }: Props) {
+/** 日历视图：展示事件，语音操作的结果会实时反映到这里；点事件看详情。 */
+export default function CalendarView({ events, onEventClick }: Props) {
+  function handleEventClick(arg: { event: { id: string } }) {
+    if (!onEventClick) {
+      return;
+    }
+    const id = Number(arg.event.id);
+    const found = events.find((e) => e.id === id);
+    if (found) {
+      onEventClick(found);
+    }
+  }
   return (
     <div className="flex h-full flex-col border border-line bg-panel">
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
@@ -55,6 +66,7 @@ export default function CalendarView({ events }: Props) {
           }}
           height="100%"
           events={toFcEvents(events)}
+          eventClick={handleEventClick}
           nowIndicator={true}
           dayMaxEvents={3}
         />

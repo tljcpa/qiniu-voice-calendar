@@ -3,10 +3,12 @@ import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
 import {
   confirmCommand,
+  deleteEvent,
   fetchEvents,
   resolveCommand,
   sendCommand,
 } from "./api/client";
+import EventDetail from "./components/EventDetail";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useReminders } from "./hooks/useReminders";
@@ -54,6 +56,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const speech = useSpeechRecognition();
   const tts = useSpeechSynthesis();
   const reminders = useReminders();
@@ -199,6 +202,26 @@ export default function App() {
     });
   }
 
+  // 图形化删除（点日历事件 → 详情 → 删除），与语音删除互补
+  async function handleDeleteEvent(event: CalendarEvent) {
+    setSelectedEvent(null);
+    try {
+      await deleteEvent(event.id);
+      appendMessage({
+        id: nextId(),
+        role: "assistant",
+        text: `已删除${event.title}`,
+      });
+      await refreshEvents();
+    } catch (err) {
+      appendMessage({
+        id: nextId(),
+        role: "assistant",
+        text: `删除失败：${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  }
+
   let hint = "点击说话，或在下方打字";
   if (!speech.supported) {
     hint = "当前环境不支持麦克风，请用下方文字输入";
@@ -226,9 +249,16 @@ export default function App() {
           />
         </section>
         <section className="min-h-0 lg:col-span-2">
-          <CalendarView events={events} />
+          <CalendarView events={events} onEventClick={setSelectedEvent} />
         </section>
       </main>
+      {selectedEvent && (
+        <EventDetail
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onDelete={handleDeleteEvent}
+        />
+      )}
     </div>
   );
 }
