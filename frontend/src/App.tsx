@@ -46,6 +46,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  // 小屏单栏切换，默认对话（主交互）
+  const [mobileTab, setMobileTab] = useState<"chat" | "calendar">("chat");
   const speech = useSpeechRecognition();
   const tts = useSpeechSynthesis();
   const reminders = useReminders();
@@ -227,8 +229,28 @@ export default function App() {
         onEnableReminders={reminders.enable}
         engine={speech.engine}
       />
+      {/* 小屏：对话/日历 标签切换（大屏并排，无此栏） */}
+      <div className="flex border-b border-line lg:hidden">
+        <TabButton
+          active={mobileTab === "chat"}
+          onClick={() => setMobileTab("chat")}
+        >
+          对话
+        </TabButton>
+        <TabButton
+          active={mobileTab === "calendar"}
+          onClick={() => setMobileTab("calendar")}
+        >
+          日历
+        </TabButton>
+      </div>
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-5">
-        <section className="min-h-0 lg:col-span-3">
+        <section
+          className={[
+            "min-h-0 lg:col-span-3 lg:block",
+            mobileTab === "chat" ? "block" : "hidden",
+          ].join(" ")}
+        >
           <ConversationPanel
             messages={messages}
             listening={speech.listening}
@@ -238,7 +260,12 @@ export default function App() {
             onSend={processCommand}
           />
         </section>
-        <section className="min-h-0 lg:col-span-2">
+        <section
+          className={[
+            "min-h-0 lg:col-span-2 lg:block",
+            mobileTab === "calendar" ? "block" : "hidden",
+          ].join(" ")}
+        >
           <CalendarView events={events} onEventClick={setSelectedEvent} />
         </section>
       </main>
@@ -250,6 +277,31 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex-1 border-b-2 px-4 py-2 text-sm transition-colors",
+        active
+          ? "border-accent text-accent"
+          : "border-transparent text-fg-muted hover:text-fg",
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -277,14 +329,16 @@ function Header({
   return (
     <header className="flex items-center gap-4 border-b border-line bg-panel px-4 py-2">
       {/* 标识：极简字母组 + 名称，无渐变无图标光晕 */}
-      <div className="flex items-baseline gap-2">
+      <div className="flex shrink-0 items-baseline gap-2">
         <span className="font-mono text-sm font-semibold text-accent">VC</span>
-        <h1 className="text-sm font-semibold text-fg">语音日历</h1>
+        <h1 className="whitespace-nowrap text-sm font-semibold text-fg">
+          语音日历
+        </h1>
       </div>
-      {/* 引擎状态：功能性而非营销文案 */}
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-fg-dim">
+      {/* 引擎状态：功能性而非营销文案（窄屏隐藏文字保留点） */}
+      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-fg-dim">
         <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-        {engineLabel}
+        <span className="hidden sm:inline">{engineLabel}</span>
       </span>
       <div className="ml-auto flex items-center gap-2">
         <ToggleChip
