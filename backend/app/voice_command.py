@@ -69,6 +69,17 @@ def _day_range(dt: datetime):
     return (start, end)
 
 
+def _month_range(year: int, month: int, label: str):
+    """取某年某月的 [首日00:00, 月末23:59:59] 范围。返回 (start, end, label, True)。"""
+    start = datetime(year, month, 1)
+    if month < 12:
+        ny, nm = year, month + 1
+    else:
+        ny, nm = year + 1, 1
+    end = datetime(ny, nm, 1) - timedelta(seconds=1)
+    return (start, end, label, True)
+
+
 def _create_one(session, title, start, location, attendees, reminder_min):
     """创建单个事件，并按需挂提醒。供 add 与冲突确认复用。"""
     ev = crud.create_event(
@@ -207,27 +218,33 @@ def _view_range(time_expr, now):
         s, e = _day_range(now)
         return (s, e, "今天", False)
 
-    # 月范围：这个月/本月/下个月/下月（不带具体日）
-    if re.search(r"(这个|本|下个|下)?\s*月", time_expr) and not re.search(
-        r"\d|[一二三四五六七八九十]+\s*[日号]", time_expr
-    ):
-        month_offset = 0
-        if "下" in time_expr:
-            month_offset = 1
+    from app.time_parser import zh_to_int
+
+    # 相对月：这个月/本月/下个月/下月/上个月/上月（必须有相对词，避免"六月"误判）
+    rel = re.search(r"(这个|本|下个|下|上个|上)\s*月", time_expr)
+    if rel:
+        word = rel.group(1)
+        offset = 0
+        if word in ("下个", "下"):
+            offset = 1
+        elif word in ("上个", "上"):
+            offset = -1
         y = now.year
-        m = now.month + month_offset
+        m = now.month + offset
         if m > 12:
-            y += 1
-            m -= 12
-        start = now.replace(
-            year=y, month=m, day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-        # 下月一号 - 1 秒 = 本月末
-        ny, nm = (y, m + 1) if m < 12 else (y + 1, 1)
-        nxt = start.replace(year=ny, month=nm)
-        end = nxt - timedelta(seconds=1)
-        label = "这个月" if month_offset == 0 else f"{m}月"
-        return (start, end, label, True)
+            y, m = y + 1, m - 12
+        elif m < 1:
+            y, m = y - 1, m + 12
+        label = {0: "这个月", 1: "下个月", -1: "上个月"}[offset]
+        return _month_range(y, m, label)
+
+    # 具体月份名："六月/6月有什么安排"（无具体日 → 整月范围）
+    if not re.search(r"[日号]", time_expr):
+        sm = re.search(r"([0-9一二三四五六七八九十]+)\s*月", time_expr)
+        if sm:
+            mv = zh_to_int(sm.group(1))
+            if mv is not None and 1 <= mv <= 12:
+                return _month_range(now.year, mv, f"{mv}月")
 
     # 周范围：(这|本|下下|下|上)?(周|星期|礼拜) 且后面不跟具体星期几
     wm = re.search(r"(这|本|下下|下|上)?\s*(?:周|星期|礼拜)(?![一二三四五六日天末])", time_expr)
