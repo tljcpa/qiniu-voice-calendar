@@ -21,7 +21,8 @@ export default function Waveform({ active }: Props) {
     }
 
     let analyser: AnalyserNode | null = null;
-    let dataArray: Uint8Array | null = null;
+    // 显式 ArrayBuffer 泛型：TS 5.7 起 TypedArray 泛型化，getByteFrequencyData 要 Uint8Array<ArrayBuffer>
+    let dataArray: Uint8Array<ArrayBuffer> | null = null;
     let phase = 0;
     let cancelled = false;
 
