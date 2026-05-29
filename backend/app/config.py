@@ -40,11 +40,26 @@ class Settings:
         self.azure_speech_region: str = os.getenv("AZURE_SPEECH_REGION", "eastus2")
 
         # LLM 后端（PR3 起使用）
+        # 默认后端：deepseek 或 azure。主后端异常时自动 fallback 到另一个。
+        self.llm_backend: str = os.getenv("LLM_BACKEND", "deepseek")
+
+        # DeepSeek（默认）
         self.deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
         self.deepseek_base_url: str = os.getenv(
             "DEEPSEEK_BASE_URL", "https://api.deepseek.com"
         )
         self.deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+        # Azure OpenAI（备用 fallback）
+        self.azure_openai_api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
+        self.azure_openai_endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        self.azure_openai_api_version: str = os.getenv(
+            "AZURE_OPENAI_API_VERSION", "2024-10-21"
+        )
+        # Azure 的"部署名"即模型路由标识，对应 chat 调用的 model 参数。
+        self.azure_openai_deployment: str = os.getenv(
+            "AZURE_OPENAI_DEPLOYMENT", ""
+        )
 
     def speech_configured(self) -> bool:
         """Azure Speech 凭证是否就绪。健康检查用，不打印 key 本身。"""
@@ -53,8 +68,10 @@ class Settings:
         return False
 
     def llm_configured(self) -> bool:
-        """LLM 凭证是否就绪。"""
+        """LLM 凭证是否就绪（任一后端可用即算就绪）。"""
         if self.deepseek_api_key:
+            return True
+        if self.azure_openai_api_key and self.azure_openai_endpoint:
             return True
         return False
 
