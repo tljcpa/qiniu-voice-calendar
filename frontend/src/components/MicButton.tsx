@@ -5,52 +5,51 @@ interface Props {
 }
 
 /**
- * 录音按钮：科技感圆形按钮，监听时外圈脉冲扩散动画。
- * PR10 为视觉骨架（onClick 占位），PR11 接 Azure Speech 流式识别。
+ * 录音按钮：克制方案——常态硬线描边，录音时填强调色 + 细环（无渐变无霓虹光晕）。
  */
 export default function MicButton({ listening, disabled, onClick }: Props) {
   return (
-    <div className="relative flex items-center justify-center">
-      {listening && (
-        <>
-          <span className="absolute h-20 w-20 rounded-full bg-neon-cyan/30 animate-pulseRing" />
-          <span
-            className="absolute h-20 w-20 rounded-full bg-neon-cyan/20 animate-pulseRing"
-            style={{ animationDelay: "0.6s" }}
-          />
-        </>
-      )}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onClick}
-        aria-label={listening ? "停止录音" : "开始录音"}
-        className={[
-          "relative flex h-16 w-16 items-center justify-center rounded-full transition-all",
-          "disabled:cursor-not-allowed disabled:opacity-40",
-          listening
-            ? "bg-gradient-to-br from-neon-cyan to-neon-blue shadow-glow-lg scale-105"
-            : "bg-gradient-to-br from-ink-600 to-ink-700 hover:shadow-glow hover:scale-105 border border-white/10",
-        ].join(" ")}
-      >
-        <MicIcon active={listening} />
-      </button>
-    </div>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={listening ? "停止录音" : "开始录音"}
+      className={[
+        "flex h-11 w-11 items-center justify-center rounded-full border transition-colors",
+        "disabled:cursor-not-allowed disabled:opacity-40",
+        listening
+          ? "border-accent bg-accent text-canvas ring-2 ring-accent/30"
+          : "border-line bg-panel2 text-fg-muted hover:border-accent-line hover:text-fg",
+      ].join(" ")}
+    >
+      <MicIcon />
+    </button>
   );
 }
 
-function MicIcon({ active }: { active: boolean }) {
-  const color = active ? "#0a0e1a" : "#22d3ee";
+function MicIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-      <rect x="9" y="3" width="6" height="11" rx="3" fill={color} />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect
+        x="9"
+        y="3"
+        width="6"
+        height="11"
+        rx="3"
+        fill="currentColor"
+      />
       <path
         d="M5 11a7 7 0 0 0 14 0"
-        stroke={color}
-        strokeWidth="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
         strokeLinecap="round"
       />
-      <path d="M12 18v3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M12 18v3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

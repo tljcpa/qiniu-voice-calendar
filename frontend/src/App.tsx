@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
 import {
@@ -205,15 +205,16 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-canvas">
       <Header
         ttsEnabled={tts.enabled}
         speaking={tts.speaking}
         onToggleTts={tts.toggleEnabled}
         remindersOn={reminders.permission === "granted"}
         onEnableReminders={reminders.enable}
+        engine={speech.engine}
       />
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-5">
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-5">
         <section className="min-h-0 lg:col-span-3">
           <ConversationPanel
             messages={messages}
@@ -238,6 +239,7 @@ interface HeaderProps {
   onToggleTts: () => void;
   remindersOn: boolean;
   onEnableReminders: () => void;
+  engine: "azure" | "web" | null;
 }
 
 function Header({
@@ -246,86 +248,105 @@ function Header({
   onToggleTts,
   remindersOn,
   onEnableReminders,
+  engine,
 }: HeaderProps) {
+  let engineLabel = "Azure 语音";
+  if (engine === "web") {
+    engineLabel = "浏览器语音(降级)";
+  }
   return (
-    <header className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan to-neon-violet shadow-glow">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <rect x="9" y="3" width="6" height="11" rx="3" fill="#0a0e1a" />
-          <path
-            d="M5 11a7 7 0 0 0 14 0"
-            stroke="#0a0e1a"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
+    <header className="flex items-center gap-4 border-b border-line bg-panel px-4 py-2">
+      {/* 标识：极简字母组 + 名称，无渐变无图标光晕 */}
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-sm font-semibold text-accent">VC</span>
+        <h1 className="text-sm font-semibold text-fg">语音日历</h1>
       </div>
-      <div>
-        <h1 className="text-base font-bold tracking-wide text-white">
-          语音日历
-        </h1>
-        <p className="text-[11px] text-slate-400">
-          Azure 工业级中文语音 · 自然语言时间解析 · 对话式日程管理
-        </p>
-      </div>
-      <div className="ml-auto flex items-center gap-3">
-        {/* 提醒开关：申请浏览器通知权限 */}
-        <button
-          type="button"
+      {/* 引擎状态：功能性而非营销文案 */}
+      <span className="flex items-center gap-1.5 font-mono text-[11px] text-fg-dim">
+        <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+        {engineLabel}
+      </span>
+      <div className="ml-auto flex items-center gap-2">
+        <ToggleChip
+          on={remindersOn}
+          label={remindersOn ? "提醒 开" : "提醒"}
+          ariaLabel="开启日程提醒"
           onClick={onEnableReminders}
-          aria-label="开启日程提醒"
-          className={[
-            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
-            remindersOn
-              ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
-              : "border-white/10 bg-ink-700/60 text-slate-400 hover:text-slate-200",
-          ].join(" ")}
-        >
-          <span aria-hidden="true">🔔</span>
-          {remindersOn ? "提醒 开" : "开启提醒"}
-        </button>
-        {/* 语音回复开关：体现"语音闭环"卖点 */}
-        <button
-          type="button"
+          icon={<BellIcon />}
+        />
+        <ToggleChip
+          on={ttsEnabled}
+          label={ttsEnabled ? "语音回复 开" : "语音回复 关"}
+          ariaLabel={ttsEnabled ? "关闭语音回复" : "开启语音回复"}
           onClick={onToggleTts}
-          aria-label={ttsEnabled ? "关闭语音回复" : "开启语音回复"}
-          className={[
-            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
-            ttsEnabled
-              ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
-              : "border-white/10 bg-ink-700/60 text-slate-400",
-          ].join(" ")}
-        >
-          <SpeakerIcon on={ttsEnabled} pulsing={speaking} />
-          {ttsEnabled ? "语音回复 开" : "语音回复 关"}
-        </button>
-        <span className="rounded-full border border-neon-violet/30 bg-neon-violet/10 px-3 py-1 text-xs text-neon-violet">
-          语音交互为核心
-        </span>
+          icon={<SpeakerIcon muted={!ttsEnabled} pulsing={speaking} />}
+        />
       </div>
     </header>
   );
 }
 
-function SpeakerIcon({ on, pulsing }: { on: boolean; pulsing: boolean }) {
-  const color = on ? "#22d3ee" : "#64748b";
+interface ChipProps {
+  on: boolean;
+  label: string;
+  ariaLabel: string;
+  onClick: () => void;
+  icon: ReactNode;
+}
+
+function ToggleChip({ on, label, ariaLabel, onClick, icon }: ChipProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={[
+        "flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors",
+        on
+          ? "border-accent-line bg-accent-soft text-accent"
+          : "border-line bg-panel2 text-fg-muted hover:text-fg",
+      ].join(" ")}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 19a2 2 0 0 0 4 0"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SpeakerIcon({ muted, pulsing }: { muted: boolean; pulsing: boolean }) {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
-      className={pulsing ? "animate-pulse" : ""}
+      className={pulsing ? "animate-blink" : ""}
     >
-      <path
-        d="M4 9v6h4l5 4V5L8 9H4z"
-        fill={color}
-      />
-      {on && (
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+      {!muted && (
         <path
           d="M16 8a5 5 0 0 1 0 8"
-          stroke={color}
-          strokeWidth="2"
+          stroke="currentColor"
+          strokeWidth="1.8"
           strokeLinecap="round"
         />
       )}
