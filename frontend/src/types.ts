@@ -24,6 +24,8 @@ export interface CommandResponse {
   candidates: CalendarEvent[];
   /** 受影响或查询到的事件 */
   events: CalendarEvent[];
+  /** update 澄清时待应用的新值，多轮 resolve 时原样回传 */
+  pending_new_values?: Record<string, unknown> | null;
   error?: string;
 }
 

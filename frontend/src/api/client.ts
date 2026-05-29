@@ -43,6 +43,26 @@ export async function sendCommand(
   return handle<CommandResponse>(resp);
 }
 
+/** 多轮澄清第二步：带上一轮意图与候选，由用户指代选定并执行。 */
+export async function resolveCommand(
+  text: string,
+  intent: string,
+  candidates: CalendarEvent[],
+  newValues: Record<string, unknown> | null | undefined
+): Promise<CommandResponse> {
+  const resp = await fetch(`${BASE}/api/voice/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      intent,
+      candidates,
+      new_values: newValues ?? null,
+    }),
+  });
+  return handle<CommandResponse>(resp);
+}
+
 /** 取 Azure Speech 短时令牌（浏览器 SDK 用）。 */
 export async function fetchSpeechToken(): Promise<SpeechToken> {
   const resp = await fetch(`${BASE}/api/speech/token`, { method: "POST" });

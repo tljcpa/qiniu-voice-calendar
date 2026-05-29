@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
-import { fetchEvents, sendCommand } from "./api/client";
+import { fetchEvents, resolveCommand, sendCommand } from "./api/client";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useReminders } from "./hooks/useReminders";
-import type { CalendarEvent, ChatMessage } from "./types";
+import type { CalendarEvent, ChatMessage, CommandResponse } from "./types";
+
+// 待澄清状态：上一轮系统反问"要哪一个"时，记住意图与候选，
+// 下一句用户指代（"第一个/下午那个"）走 resolve 而非新指令。
+interface Pending {
+  intent: string;
+  candidates: CalendarEvent[];
+  newValues: Record<string, unknown> | null;
+}
 
 const WELCOME: ChatMessage = {
   id: "welcome",
@@ -23,6 +31,7 @@ export default function App() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
   const speech = useSpeechRecognition();
   const tts = useSpeechSynthesis();
   const reminders = useReminders();
@@ -46,23 +55,48 @@ export default function App() {
     setMessages((prev) => [...prev, msg]);
   }
 
+  // 根据响应更新"待澄清"状态：delete/update 反问候选时记住，否则清空
+  function updatePending(resp: CommandResponse) {
+    const isPickable = resp.intent === "delete" || resp.intent === "update";
+    if (resp.needs_clarification && resp.candidates.length > 0 && isPickable) {
+      setPending({
+        intent: resp.intent,
+        candidates: resp.candidates,
+        newValues: resp.pending_new_values ?? null,
+      });
+    } else {
+      setPending(null);
+    }
+  }
+
   // 处理一条最终指令文本（语音或打字）
   async function processCommand(text: string) {
     appendMessage({ id: nextId(), role: "user", text });
     setBusy(true);
     try {
-      const resp = await sendCommand(text);
+      let resp: CommandResponse;
+      if (pending) {
+        // 有待澄清：本句作为指代解析，选定上一轮候选
+        resp = await resolveCommand(
+          text,
+          pending.intent,
+          pending.candidates,
+          pending.newValues
+        );
+      } else {
+        resp = await sendCommand(text);
+      }
       appendMessage({
         id: nextId(),
         role: "assistant",
         text: resp.speech,
         events: resp.events,
       });
-      // 语音闭环：朗读助手回应（亮点2）
-      tts.speak(resp.speech);
-      // 任何可能改变日程的意图后刷新日历
+      tts.speak(resp.speech); // 语音闭环：朗读回应（亮点2）
+      updatePending(resp);
       await refreshEvents();
     } catch (err) {
+      setPending(null);
       appendMessage({
         id: nextId(),
         role: "assistant",

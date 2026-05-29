@@ -34,8 +34,13 @@ def _response(
     clarification: Optional[str] = None,
     candidates: Optional[list] = None,
     events: Optional[list] = None,
+    pending_new_values: Optional[dict] = None,
 ) -> dict:
-    """统一组装响应。"""
+    """统一组装响应。
+
+    pending_new_values：update 澄清时把待应用的新值一并回传，
+    前端在下一轮 resolve 时原样带回，实现多轮澄清的指代消解。
+    """
     return {
         "intent": intent,
         "ok": ok,
@@ -44,6 +49,7 @@ def _response(
         "clarification": clarification,
         "candidates": candidates or [],
         "events": events or [],
+        "pending_new_values": pending_new_values,
     }
 
 
@@ -204,6 +210,7 @@ def _handle_delete(parsed: dict, session: Session, now: datetime) -> dict:
 def _handle_update(parsed: dict, session: Session, now: datetime) -> dict:
     """修改事件。定位目标后应用新值（支持改到具体时间或整体平移）。"""
     keyword = parsed.get("target_query") or parsed.get("title")
+    new_values = parsed.get("new_values") or {}
     matches = crud.find_events(session, keyword=keyword)
     if not matches:
         return _response("update", speech=f"没有找到{keyword or '相关'}的日程", ok=False)
@@ -218,10 +225,14 @@ def _handle_update(parsed: dict, session: Session, now: datetime) -> dict:
             needs_clarification=True,
             clarification="目标不唯一",
             candidates=candidates,
+            pending_new_values=new_values,
         )
 
-    target = matches[0]
-    new_values = parsed.get("new_values") or {}
+    return _apply_update(matches[0], new_values, session, now)
+
+
+def _apply_update(target, new_values: dict, session: Session, now: datetime) -> dict:
+    """对已确定的目标事件应用新值（改到具体时间或整体平移）。"""
     new_start = None
 
     # 优先用明确新时间表达
@@ -260,6 +271,111 @@ def _handle_update(parsed: dict, session: Session, now: datetime) -> dict:
         speech=f"已把{target.title}改到{_fmt_dt(new_start)}",
         events=[updated.to_dict()],
     )
+
+
+# 序数词 → 索引（支持"第一个/头一个/最后一个/第2个"等）
+_ORDINAL = {
+    "第一": 0, "第1": 0, "头一": 0, "第一个": 0, "头个": 0, "首个": 0,
+    "第二": 1, "第2": 1, "第三": 2, "第3": 2,
+    "第四": 3, "第4": 3, "第五": 4, "第5": 4,
+}
+
+# 时段 → 小时区间（用于"下午那个"匹配候选）
+_PERIOD_RANGE = {
+    "凌晨": (0, 5), "早上": (5, 9), "早晨": (5, 9), "上午": (5, 12),
+    "中午": (11, 13), "下午": (12, 18), "傍晚": (17, 19),
+    "晚上": (18, 24), "夜里": (18, 24),
+}
+
+
+def resolve_selection(text: str, candidates: list) -> Optional[int]:
+    """从用户的指代话术里，确定性地选出候选事件的下标。
+
+    candidates 为 event dict 列表（含 title / start_at）。
+    依次尝试：序数（第一个）→ 末位（最后）→ 时段（下午那个）→ 标题关键词。
+    选不出唯一返回 None（让上层再问一次）。
+    """
+    if not candidates:
+        return None
+
+    # 1) 末位
+    if "最后" in text:
+        return len(candidates) - 1
+
+    # 2) 序数（长 key 优先，避免"第一" 命中"第十一"之类）
+    for key in sorted(_ORDINAL, key=len, reverse=True):
+        if key in text:
+            idx = _ORDINAL[key]
+            if 0 <= idx < len(candidates):
+                return idx
+
+    # 3) 时段：命中某时段且恰好一个候选落在区间内
+    for period, (lo, hi) in _PERIOD_RANGE.items():
+        if period in text:
+            hits = []
+            for i, c in enumerate(candidates):
+                hour = datetime.fromisoformat(c["start_at"]).hour
+                if lo <= hour < hi:
+                    hits.append(i)
+            if len(hits) == 1:
+                return hits[0]
+
+    # 4) 标题关键词：双向子串匹配（"客户对接那个"含标题；"聚餐"是"部门聚餐"的子串）
+    title_hits = []
+    for i, c in enumerate(candidates):
+        title = c.get("title") or ""
+        if not title:
+            continue
+        if title in text or (len(text) >= 2 and text in title):
+            title_hits.append(i)
+    if len(title_hits) == 1:
+        return title_hits[0]
+
+    return None
+
+
+def handle_resolve(
+    text: str,
+    intent: str,
+    candidates: list,
+    session: Session,
+    now: Optional[datetime] = None,
+    new_values: Optional[dict] = None,
+) -> dict:
+    """多轮澄清的第二步：根据用户指代从候选里选定目标并执行。
+
+    candidates 是上一轮 clarify 返回的候选 event dict 列表。
+    选不出则再次追问。
+    """
+    if now is None:
+        now = datetime.now()
+
+    idx = resolve_selection(text, candidates)
+    if idx is None:
+        return _response(
+            intent,
+            speech="还是没听清是哪一个，可以说“第一个”或说出它的时间段",
+            ok=False,
+            needs_clarification=True,
+            clarification="指代仍不明确",
+            candidates=candidates,
+            pending_new_values=new_values,
+        )
+
+    chosen = candidates[idx]
+    event = crud.get_event(session, chosen["id"])
+    if event is None:
+        return _response(intent, speech="这个日程已经不存在了", ok=False)
+
+    if intent == "delete":
+        info = event.to_dict()
+        crud.delete_event(session, event.id)
+        return _response("delete", speech=f"已删除{event.title}", events=[info])
+
+    if intent == "update":
+        return _apply_update(event, new_values or {}, session, now)
+
+    return _response(intent, speech="好的", ok=False)
 
 
 def _parse_shift(shift: str) -> Optional[timedelta]:

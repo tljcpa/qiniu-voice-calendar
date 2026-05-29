@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.llm_provider import LLMError, get_llm
-from app.voice_command import handle_command
+from app.voice_command import handle_command, handle_resolve
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
@@ -19,6 +19,15 @@ class CommandRequest(BaseModel):
     text: str
     # 冲突时是否强制创建（用户坚持原时间）
     force: bool = False
+
+
+class ResolveRequest(BaseModel):
+    """多轮澄清第二步：带上一轮的待定意图与候选，由用户指代选定。"""
+
+    text: str
+    intent: str
+    candidates: list
+    new_values: dict | None = None
 
 
 @router.post("/command")
@@ -38,3 +47,18 @@ def command(body: CommandRequest, session: Session = Depends(get_session)) -> di
             "error": str(exc),
         }
     return handle_command(body.text, session=session, llm=llm, force=body.force)
+
+
+@router.post("/resolve")
+def resolve(body: ResolveRequest, session: Session = Depends(get_session)) -> dict:
+    """多轮澄清第二步：用户指代（“第一个”“下午那个”）选定候选并执行。
+
+    纯确定性选择，不需 LLM，故不依赖凭证。
+    """
+    return handle_resolve(
+        body.text,
+        intent=body.intent,
+        candidates=body.candidates,
+        session=session,
+        new_values=body.new_values,
+    )
