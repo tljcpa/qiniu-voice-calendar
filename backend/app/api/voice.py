@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.llm_provider import LLMError, get_llm
-from app.voice_command import handle_command, handle_resolve
+from app.voice_command import handle_command, handle_confirm, handle_resolve
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
@@ -28,6 +28,14 @@ class ResolveRequest(BaseModel):
     intent: str
     candidates: list
     new_values: dict | None = None
+
+
+class ConfirmRequest(BaseModel):
+    """冲突确认：带上一轮 add 冲突回传的 pending_conflict 与用户决定。"""
+
+    data: dict
+    # True=接受建议时间；False=坚持原时间强建
+    accept_suggestion: bool
 
 
 @router.post("/command")
@@ -61,4 +69,12 @@ def resolve(body: ResolveRequest, session: Session = Depends(get_session)) -> di
         candidates=body.candidates,
         session=session,
         new_values=body.new_values,
+    )
+
+
+@router.post("/confirm")
+def confirm(body: ConfirmRequest, session: Session = Depends(get_session)) -> dict:
+    """冲突后的对话决定：接受建议时间或坚持原时间。纯确定性，不需 LLM。"""
+    return handle_confirm(
+        body.data, accept_suggestion=body.accept_suggestion, session=session
     )
