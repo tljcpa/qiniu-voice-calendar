@@ -13,7 +13,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import events as events_api
 from app.api import speech as speech_api
+from app.api import voice as voice_api
 from app.config import settings
 from app.db import init_db
 
@@ -78,6 +80,8 @@ def create_app() -> FastAPI:
 
     # 业务路由装配
     app.include_router(speech_api.router)
+    app.include_router(events_api.router)
+    app.include_router(voice_api.router)
 
     return app
 
