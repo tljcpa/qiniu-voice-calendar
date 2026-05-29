@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.conflict import check_conflict
 from app.intent_parser import parse_intent
-from app.time_parser import parse_time
+from app.time_parser import _monday_of, parse_time
 
 
 def _response(
@@ -195,28 +195,90 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
     return _response("add", speech=speech, events=created)
 
 
-def _handle_view(parsed: dict, session: Session, now: datetime) -> dict:
-    """查询事件。按 time_expr 推导日范围，无则默认今天。"""
-    time_expr = parsed.get("time_expr")
-    if time_expr:
-        tr = parse_time(time_expr, now=now)
-        if tr["ok"]:
-            anchor = datetime.fromisoformat(tr["datetimes"][0])
-        else:
-            anchor = now
+def _view_range(time_expr, now):
+    """据时间表达推导查询范围，返回 (start, end, label, is_multiday)。
+
+    支持：周（本周/下周/上周/下下周，不带具体星期几）、月（这个月/下个月）、
+    单日（今天/明天/具体日期/带星期的"下周三"）。无表达 → 今天。
+    """
+    import re
+
+    if not time_expr:
+        s, e = _day_range(now)
+        return (s, e, "今天", False)
+
+    # 月范围：这个月/本月/下个月/下月（不带具体日）
+    if re.search(r"(这个|本|下个|下)?\s*月", time_expr) and not re.search(
+        r"\d|[一二三四五六七八九十]+\s*[日号]", time_expr
+    ):
+        month_offset = 0
+        if "下" in time_expr:
+            month_offset = 1
+        y = now.year
+        m = now.month + month_offset
+        if m > 12:
+            y += 1
+            m -= 12
+        start = now.replace(
+            year=y, month=m, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        # 下月一号 - 1 秒 = 本月末
+        ny, nm = (y, m + 1) if m < 12 else (y + 1, 1)
+        nxt = start.replace(year=ny, month=nm)
+        end = nxt - timedelta(seconds=1)
+        label = "这个月" if month_offset == 0 else f"{m}月"
+        return (start, end, label, True)
+
+    # 周范围：(这|本|下下|下|上)?(周|星期|礼拜) 且后面不跟具体星期几
+    wm = re.search(r"(这|本|下下|下|上)?\s*(?:周|星期|礼拜)(?![一二三四五六日天末])", time_expr)
+    if wm:
+        mod = wm.group(1)
+        week_offset = 0
+        if mod == "下":
+            week_offset = 1
+        elif mod == "下下":
+            week_offset = 2
+        elif mod == "上":
+            week_offset = -1
+        monday = _monday_of(now) + timedelta(weeks=week_offset)
+        start = monday
+        end = monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        label = {0: "本周", 1: "下周", 2: "下下周", -1: "上周"}.get(week_offset, "本周")
+        return (start, end, label, True)
+
+    # 单日：用 parse_time 的锚点
+    tr = parse_time(time_expr, now=now)
+    if tr["ok"]:
+        anchor = datetime.fromisoformat(tr["datetimes"][0])
     else:
         anchor = now
+    s, e = _day_range(anchor)
+    if anchor.date() == now.date():
+        label = "今天"
+    else:
+        label = f"{anchor.month}月{anchor.day}日"
+    return (s, e, label, False)
 
-    start, end = _day_range(anchor)
+
+def _handle_view(parsed: dict, session: Session, now: datetime) -> dict:
+    """查询事件。支持单日 / 本周下周 / 整月范围。"""
+    time_expr = parsed.get("time_expr")
+    start, end, label, is_multiday = _view_range(time_expr, now)
     events = crud.list_events(session, start=start, end=end)
     event_dicts = [e.to_dict() for e in events]
 
-    when = "今天" if anchor.date() == now.date() else f"{anchor.month}月{anchor.day}日"
     if not events:
-        speech = f"{when}没有安排"
+        speech = f"{label}没有安排"
+    elif is_multiday:
+        # 跨多天：带月日，避免歧义
+        parts = [
+            f"{e.start_at.month}月{e.start_at.day}日{e.start_at.hour}点的{e.title}"
+            for e in events
+        ]
+        speech = f"{label}有{len(events)}个安排：" + "、".join(parts)
     else:
         parts = [f"{e.start_at.hour}点的{e.title}" for e in events]
-        speech = f"{when}有{len(events)}个安排：" + "、".join(parts)
+        speech = f"{label}有{len(events)}个安排：" + "、".join(parts)
     return _response("view", speech=speech, events=event_dicts)
 
 
