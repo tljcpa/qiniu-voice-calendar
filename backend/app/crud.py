@@ -132,3 +132,22 @@ def create_reminder(
     session.commit()
     session.refresh(reminder)
     return reminder
+
+
+def get_due_reminders(session: Session, now: datetime) -> list[Reminder]:
+    """取到期（remind_at <= now）且未发送的提醒，按时间升序。"""
+    stmt = (
+        select(Reminder)
+        .where(Reminder.remind_at <= now)
+        .where(Reminder.sent == False)  # noqa: E712 - SQLAlchemy 需用 ==
+        .order_by(Reminder.remind_at.asc())
+    )
+    return list(session.scalars(stmt).all())
+
+
+def mark_reminder_sent(session: Session, reminder_id: int) -> None:
+    """标记提醒已发送，避免重复弹出。"""
+    reminder = session.get(Reminder, reminder_id)
+    if reminder is not None:
+        reminder.sent = True
+        session.commit()
