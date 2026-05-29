@@ -1,11 +1,11 @@
-# 语音日历部署编排（占位骨架，PR13 完善）。
+# 语音日历部署编排。
 #
-# 三项目共用一台 Azure VM，故本项目用：
-#   - 独立 compose project name: voice-calendar（启动时 -p voice-calendar）
-#   - 后端独立端口 8081
-#   - Caddy 负责 voice.qiniu.zdwktlj.top 的自动 HTTPS（PR13 接入）
-#
-# 当前仅定义 backend，frontend 与 caddy 待前端脚手架与部署 PR 补齐。
+# 同机三项目隔离（见 BRIEF §3.5）：
+#   - 独立 compose project：启动用 `docker compose -p voice-calendar up -d`
+#   - 后端对外固定端口 8081（另两项目用 8082 等）
+#   - 独立目录 /opt/voice-calendar
+# 前端不进容器：vite 构建出的静态产物由宿主机共享 Caddy 直接 file_server 托管，
+# Caddy 把 /api/* 反代到本服务 8081（见 deploy/voice.caddy）。
 
 services:
   backend:
@@ -14,15 +14,12 @@ services:
     image: voice-calendar-backend:latest
     container_name: voice-calendar-backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
-      - APP_HOST=0.0.0.0
-      - APP_PORT=8081
-      # 真实凭证在部署时通过 .env 或环境注入，绝不写进本文件。
-      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY:-}
-      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION:-eastus2}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      # SQLite 落到挂载卷，容器重建不丢数据
+      - DATABASE_URL=sqlite:////data/voice_calendar.db
+    volumes:
+      - ./data:/data
     ports:
-      - "8081:8081"
-
-  # frontend:  # PR13 接入（Vite 构建产物由 Caddy 托管）
-  # caddy:     # PR13 接入（自动签 Let's Encrypt 证书）
+      - "127.0.0.1:8081:8081"
