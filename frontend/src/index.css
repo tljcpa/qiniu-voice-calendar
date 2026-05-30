@@ -14,150 +14,144 @@ body,
 }
 
 body {
-  /* 纯净中性底色，无霓虹径向渐变 */
-  background: #0e1014;
-  color: #e3e6ea;
-  font-family: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei",
-    "Source Han Sans SC", system-ui, sans-serif;
-  font-feature-settings: "tnum" 1; /* 等宽数字，时间表格更整齐 */
+  /* 暖炭灰底（手账气质），非纯黑 */
+  background: #1c1813;
+  color: #f2ead9;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui,
+    sans-serif;
+  font-feature-settings: "tnum" 1; /* 等宽数字，时间对齐 */
 }
 
-/* ---------- FullCalendar：克制中性深色，仅 today/事件用强调色 ---------- */
+/* 标题 / 事件：霞鹜文楷 */
+.font-title {
+  font-family: "LXGW WenKai Screen", "Noto Sans SC", KaiTi, serif;
+}
+
+/* ---------- FullCalendar 换皮：暖炭灰 + 蜜琥珀，去默认原皮 ---------- */
 .fc {
-  --fc-border-color: #272c36;
+  --fc-border-color: #423a2e;
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #1b1f27;
-  --fc-today-bg-color: rgba(201, 162, 90, 0.07);
-  --fc-event-bg-color: #1b1f27;
-  --fc-event-border-color: #272c36;
-  --fc-event-text-color: #e3e6ea;
-  font-size: 0.8rem;
+  --fc-neutral-bg-color: #2e2820;
+  --fc-today-bg-color: rgba(226, 167, 73, 0.08);
+  --fc-event-bg-color: #2e2820;
+  --fc-event-border-color: #423a2e;
+  --fc-event-text-color: #f2ead9;
+  font-size: 0.82rem;
 }
 
 .fc .fc-toolbar-title {
-  font-size: 0.95rem;
+  font-family: "LXGW WenKai Screen", "Noto Sans SC", serif;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: #e3e6ea;
+  color: #f2ead9;
   letter-spacing: 0.01em;
 }
 
 .fc .fc-col-header-cell-cushion,
 .fc .fc-daygrid-day-number {
-  color: #9298a3;
+  color: #b8ab92;
   text-decoration: none;
   font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
 }
 
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-  color: #c9a25a;
+  color: #e2a749;
   font-weight: 600;
 }
 
-/* 工具栏按钮：扁平、硬线、无渐变无阴影 */
+/* 工具栏按钮：扁平、暖硬线、无渐变无阴影 */
 .fc .fc-button {
-  background: #15181e;
-  border: 1px solid #272c36;
-  color: #9298a3;
+  background: #25201a;
+  border: 1px solid #423a2e;
+  color: #b8ab92;
   text-transform: none;
   box-shadow: none;
-  border-radius: 4px;
-  padding: 0.2rem 0.55rem;
+  border-radius: 5px;
+  padding: 0.2rem 0.6rem;
   font-size: 0.78rem;
 }
 
 .fc .fc-button:hover {
-  background: #1b1f27;
-  color: #e3e6ea;
+  background: #2e2820;
+  color: #f2ead9;
 }
 
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
-  background: #221d12;
-  border-color: #5a4d30;
-  color: #c9a25a;
+  background: #2f2616;
+  border-color: #6e5a30;
+  color: #e2a749;
 }
 
-/* 事件：左侧强调色细条标识，无圆角光晕 */
+/* 事件：蜜琥珀左条标识 + 文楷标题 */
 .fc .fc-event,
 .fc .fc-daygrid-event {
-  border-radius: 2px;
+  border-radius: 3px;
   border: none;
-  border-left: 2px solid #c9a25a;
-  background: #1b1f27;
+  border-left: 2px solid #e2a749;
+  background: #2e2820;
   padding: 0 4px;
   box-shadow: none;
   cursor: pointer;
-  font-variant-numeric: tabular-nums;
+}
+
+.fc .fc-event-title,
+.fc .fc-event-time {
+  font-family: "LXGW WenKai Screen", "Noto Sans SC", serif;
 }
 
 .fc .fc-event:hover {
-  background: #222730;
+  background: #383023;
 }
 
 .fc-theme-standard td,
 .fc-theme-standard th {
-  border-color: #1f242d;
+  border-color: #2c261e;
 }
 
-/* ---------- 周/日（timeGrid）视图 ---------- */
+/* 周/日（timeGrid）视图 */
 .fc .fc-timegrid-slot-label-cushion,
 .fc .fc-timegrid-axis-cushion {
-  color: #616773;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.7rem;
+  color: #84775f;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
 }
 
 .fc .fc-timegrid-slot {
-  height: 2.2em; /* 略密 */
+  height: 2.2em;
 }
 
-/* 当前时刻指示线用强调色 */
 .fc .fc-timegrid-now-indicator-line {
-  border-color: #c9a25a;
+  border-color: #e2a749;
 }
 .fc .fc-timegrid-now-indicator-arrow {
-  border-color: #c9a25a;
-  background: #c9a25a;
+  border-color: #e2a749;
+  background: #e2a749;
 }
 
-/* 周视图列头：星期 + 日期 */
-.fc .fc-timegrid .fc-col-header-cell-cushion {
-  padding: 4px 0;
-}
 .fc .fc-day-today .fc-col-header-cell-cushion {
-  color: #c9a25a;
+  color: #e2a749;
 }
 
-/* timeGrid 事件块：实底 + 强调色左条，文字用等宽对齐时间 */
 .fc .fc-timegrid-event {
-  background: #1b1f27;
+  background: #2e2820;
   border: none;
-  border-left: 2px solid #c9a25a;
+  border-left: 2px solid #e2a749;
   box-shadow: none;
 }
 .fc .fc-timegrid-event .fc-event-time {
-  font-family: "IBM Plex Mono", monospace;
-  color: #c9a25a;
-  font-size: 0.7rem;
-}
-.fc .fc-timegrid-event .fc-event-title {
-  color: #e3e6ea;
+  color: #e2a749;
+  font-size: 0.72rem;
 }
 
-/* 全天行标签 */
-.fc .fc-timegrid-axis-frame {
-  color: #616773;
-  font-size: 0.7rem;
-}
-
-/* 细滚动条 */
+/* 细滚动条（暖色） */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a303b;
+  background: #3a342a;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-track {

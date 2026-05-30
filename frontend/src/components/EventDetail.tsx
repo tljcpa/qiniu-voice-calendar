@@ -24,7 +24,7 @@ function fmtRange(startIso: string, endIso: string | null): string {
 export default function EventDetail({ event, onClose, onDelete }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#120e09]/70 p-4"
       onClick={onClose}
     >
       <div
@@ -32,7 +32,7 @@ export default function EventDetail({ event, onClose, onDelete }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+          <h3 className="font-title text-sm font-semibold tracking-wide text-fg-muted">
             事件详情
           </h3>
           <button
@@ -53,7 +53,7 @@ export default function EventDetail({ event, onClose, onDelete }: Props) {
         </div>
 
         <div className="space-y-3 px-4 py-4">
-          <div className="text-base font-medium text-fg">{event.title}</div>
+          <div className="font-title text-lg font-medium text-fg">{event.title}</div>
           <Row label="时间" value={fmtRange(event.start_at, event.end_at)} mono />
           {event.location && <Row label="地点" value={event.location} />}
           {event.attendees.length > 0 && (

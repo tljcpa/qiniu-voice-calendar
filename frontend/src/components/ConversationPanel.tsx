@@ -46,7 +46,7 @@ export default function ConversationPanel({
   return (
     <div className="flex h-full flex-col border border-line bg-panel">
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+        <h2 className="font-title text-sm font-semibold tracking-wide text-fg-muted">
           对话
         </h2>
         <span className="font-mono text-[11px] text-fg-dim">
@@ -137,7 +137,7 @@ function Bubble({ msg }: { msg: ChatMessage }) {
                   <span className="text-accent">
                     {e.start_at.replace("T", " ").slice(5, 16)}
                   </span>
-                  <span className="text-fg-muted">{e.title}</span>
+                  <span className="font-title text-fg-muted">{e.title}</span>
                 </li>
               ))}
             </ul>

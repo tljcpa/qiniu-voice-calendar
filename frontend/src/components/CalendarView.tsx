@@ -41,7 +41,7 @@ export default function CalendarView({ events, onEventClick }: Props) {
   return (
     <div className="flex h-full flex-col border border-line bg-panel">
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+        <h2 className="font-title text-sm font-semibold tracking-wide text-fg-muted">
           日历
         </h2>
         <span className="ml-auto font-mono text-[11px] text-fg-dim">
