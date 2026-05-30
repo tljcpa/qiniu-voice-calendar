@@ -14,7 +14,7 @@ export interface CalendarEvent {
 
 /** 语音指令返回（对应后端 voice_command.handle_command）。 */
 export interface CommandResponse {
-  intent: "add" | "delete" | "view" | "update" | "clarify" | "plan" | "unknown";
+  intent: "add" | "delete" | "view" | "update" | "clarify" | "plan" | "export" | "unknown";
   ok: boolean;
   /** 给 TTS 播报的中文回应文案 */
   speech: string;
@@ -32,6 +32,9 @@ export interface CommandResponse {
   resolve_intent?: "delete" | "update" | null;
   /** intent=plan 待确认的多事件计划，用户"好/确认"时回传创建 */
   pending_plan?: Record<string, unknown>[] | null;
+  /** intent=export 时的 .ics 下载路径（相对 URL）和范围标签 */
+  export_url?: string | null;
+  export_label?: string | null;
   error?: string;
 }
 
@@ -50,4 +53,7 @@ export interface ChatMessage {
   events?: CalendarEvent[];
   /** 是否为"识别中"的临时文本 */
   interim?: boolean;
+  /** export 意图时的 .ics 下载路径和范围标签（显示下载按钮用） */
+  export_url?: string | null;
+  export_label?: string | null;
 }

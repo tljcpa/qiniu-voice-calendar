@@ -123,3 +123,21 @@ export function confirmPlan(
 export function fetchSpeechToken(): Promise<SpeechToken> {
   return req<SpeechToken>("/api/speech/token", { method: "POST" });
 }
+
+/**
+ * 触发 .ics 日历文件下载。
+ * 通过动态创建 <a download> 实现：后端返回 text/calendar，
+ * 浏览器直接下载；webcal:// 订阅链接则由调用方另行构造。
+ */
+export function downloadIcs(range: "today" | "week" | "month"): void {
+  const token = authToken;
+  if (!token) {
+    return;
+  }
+  // 把 token 放 query param 以兼容 <a href> 无法设 header 的场景
+  const url = `/api/calendar/export.ics?range=${range}&token=${encodeURIComponent(token)}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `voice-calendar-${range}.ics`;
+  a.click();
+}

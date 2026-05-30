@@ -171,6 +171,8 @@ export default function App() {
         role: "assistant",
         text: resp.speech,
         events: resp.events,
+        export_url: resp.export_url ?? null,
+        export_label: resp.export_label ?? null,
       });
       tts.speak(resp.speech); // 语音闭环：朗读回应（亮点2）
       updatePending(resp);
