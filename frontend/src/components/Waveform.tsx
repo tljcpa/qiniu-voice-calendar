@@ -66,7 +66,7 @@ export default function Waveform({ active }: Props) {
         const bars = 32;
         const gap = 2;
         const barW = (w - gap * (bars - 1)) / bars;
-        g.fillStyle = "#c9a25a"; // 单一强调色
+        g.fillStyle = "#e2a749"; // 蜜琥珀强调色
 
         for (let i = 0; i < bars; i++) {
           let v: number;

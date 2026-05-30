@@ -307,7 +307,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={[
-        "flex-1 border-b-2 px-4 py-2 text-sm transition-colors",
+        "font-title flex-1 border-b-2 px-4 py-2 text-sm transition-colors",
         active
           ? "border-accent text-accent"
           : "border-transparent text-fg-muted hover:text-fg",
@@ -341,13 +341,10 @@ function Header({
   }
   return (
     <header className="flex items-center gap-4 border-b border-line bg-panel px-4 py-2">
-      {/* 标识：极简字母组 + 名称，无渐变无图标光晕 */}
-      <div className="flex shrink-0 items-baseline gap-2">
-        <span className="font-mono text-sm font-semibold text-accent">VC</span>
-        <h1 className="whitespace-nowrap text-sm font-semibold text-fg">
-          语音日历
-        </h1>
-      </div>
+      {/* 简洁字标（文楷手写气质，无图标方块；wly 后续可换正式 logo 图） */}
+      <h1 className="font-title shrink-0 whitespace-nowrap text-lg font-semibold tracking-wide text-fg">
+        语音<span className="text-accent">日历</span>
+      </h1>
       {/* 引擎状态：功能性而非营销文案（窄屏隐藏文字保留点） */}
       <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-fg-dim">
         <span className="h-1.5 w-1.5 rounded-full bg-ok" />

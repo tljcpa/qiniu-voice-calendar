@@ -1,55 +1,56 @@
 /** @type {import('tailwindcss').Config} */
-// 设计令牌（见复盘 D-19 / memory 反AI味）：
-// 中性冷调 charcoal（非 slate/zinc 默认）+ 单一克制暖金强调色，
-// 数据用 IBM Plex Mono 承载，硬线边框、最小圆角阴影、无渐变无霓虹。
+// 设计令牌（手账气质）：暖炭灰底 + 米白字 + 蜜琥珀强调；
+// 标题/事件用霞鹜文楷 LXGW WenKai，正文用 Noto Sans SC。
+// 禁用：紫蓝渐变 / Inter·Roboto·OpenSans / 玻璃拟态 / 卡片套卡片 / 标题大圆角图标 /
+//      装饰 emoji / bounce 缓动 / 纯黑纯白 / 过量留白。
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        canvas: "#0e1014", // 最底背景（冷调近黑，非纯黑非 slate）
-        panel: "#15181e", // 面板
-        panel2: "#1b1f27", // 次级面板 / 输入框
-        line: "#272c36", // 硬线边框
-        "line-soft": "#1f242d",
+        canvas: "#1c1813", // 暖炭灰（非纯黑，带暖褐）
+        panel: "#25201a",
+        panel2: "#2e2820",
+        line: "#423a2e", // 暖色硬线
+        "line-soft": "#2c261e",
         fg: {
-          DEFAULT: "#e3e6ea", // 主文字
-          muted: "#9298a3", // 次要文字
-          dim: "#616773", // 弱化文字
+          DEFAULT: "#f2ead9", // 米白（非纯白）
+          muted: "#b8ab92",
+          dim: "#84775f",
         },
-        // 单一强调色：克制暖金（区别于 AI 默认蓝/紫）
+        // 单一强调：蜜琥珀
         accent: {
-          DEFAULT: "#c9a25a",
-          soft: "#221d12", // 强调色的极暗底纹
-          line: "#5a4d30",
+          DEFAULT: "#e2a749",
+          soft: "#2f2616", // 强调色极暗底纹
+          line: "#6e5a30",
         },
-        // 功能色：仅用于语义（冲突/危险）
-        danger: "#c8604a",
-        ok: "#6f9a6a",
+        // 功能语义色（暖调）
+        danger: "#cf6f4a",
+        ok: "#9aa15a",
       },
       fontFamily: {
+        // UI 正文
         sans: [
-          '"IBM Plex Sans"',
+          '"Noto Sans SC"',
           '"PingFang SC"',
           '"Microsoft YaHei"',
-          '"Source Han Sans SC"',
           "system-ui",
           "sans-serif",
         ],
-        // 时间/日期/数据用等宽，强化"工具"质感
-        mono: [
-          '"IBM Plex Mono"',
-          '"SFMono-Regular"',
-          "ui-monospace",
-          "Menlo",
-          "monospace",
+        // 标题 / 事件：霞鹜文楷（手账手写气质）
+        title: [
+          '"LXGW WenKai Screen"',
+          '"Noto Sans SC"',
+          "KaiTi",
+          "serif",
         ],
+        // 时间/数据：沿用正文族（tabular-nums 对齐），不用等宽 techy 字体
+        mono: ['"Noto Sans SC"', "ui-monospace", "monospace"],
       },
       borderRadius: {
-        // 克制圆角
-        DEFAULT: "4px",
-        md: "5px",
-        lg: "7px",
+        DEFAULT: "5px",
+        md: "6px",
+        lg: "9px",
       },
       keyframes: {
         fadeIn: {
@@ -58,12 +59,12 @@ export default {
         },
         blink: {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.35" },
+          "50%": { opacity: "0.4" },
         },
       },
       animation: {
-        fadeIn: "fadeIn 0.18s ease-out",
-        blink: "blink 1.2s ease-in-out infinite",
+        fadeIn: "fadeIn 0.2s ease-out",
+        blink: "blink 1.3s ease-in-out infinite",
       },
     },
   },
