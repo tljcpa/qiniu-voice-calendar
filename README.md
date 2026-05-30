@@ -4,7 +4,7 @@
 > 以**语音交互为核心**的日历管理工具——边走路、开车、做饭时，一句话搞定加 / 删 / 查 / 改日程。
 
 - **在线试用**：https://voice.qiniu.zdwktlj.top
-- **演示视频**：[点击播放 · 48 秒](https://voice.qiniu.zdwktlj.top/demo/voice-calendar-demo.mp4)（自然语言建事件 → 周视图 → 冲突检测 → 接受建议）
+- **演示视频**：[点击播放 · 77 秒](https://voice.qiniu.zdwktlj.top/demo/voice-calendar-demo.mp4)（意图解析 → 歧义消解 → 指代消解 → 批量 plan → ICS 导出，含字幕+旁白）
 - **架构文档**：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ![语音日历界面](docs/screenshot.png)
