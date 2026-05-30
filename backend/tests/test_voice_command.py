@@ -168,11 +168,19 @@ def test_update_to_specific_time(session):
     assert r["events"][0]["start_at"] == "2026-05-30T16:00:00"
 
 
-def test_clarify_passthrough(session):
-    llm = FakeLLM({"intent": "clarify", "clarification": "你指哪个会？"})
-    r = handle_command("改一下我的会", session=session, now=NOW, llm=llm)
+def test_clarify_update_lists_candidates(session):
+    """纯指代修改"改一下我的会"：列候选 + resolve_intent=update（不再死回显）。"""
+    crud.create_event(session, title="项目评审会", start_at=datetime(2026, 5, 30, 10, 0))
+    crud.create_event(session, title="客户对接会", start_at=datetime(2026, 5, 30, 15, 0))
+    llm = FakeLLM({
+        "intent": "clarify", "target_query": "我的会",
+        "new_values": {"shift": "往后一小时"}, "clarification": "你指哪个会？",
+    })
+    r = handle_command("把我的会往后挪一小时", session=session, now=NOW, llm=llm)
     assert r["intent"] == "clarify"
-    assert r["speech"] == "你指哪个会？"
+    assert len(r["candidates"]) == 2
+    assert r["resolve_intent"] == "update"
+    assert r["pending_new_values"] == {"shift": "往后一小时"}
 
 
 def test_unknown(session):

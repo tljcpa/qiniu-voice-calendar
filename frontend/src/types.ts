@@ -28,6 +28,8 @@ export interface CommandResponse {
   pending_new_values?: Record<string, unknown> | null;
   /** add 冲突时待建事件与建议时间，用户答"好/就这个"时回传 confirm */
   pending_conflict?: Record<string, unknown> | null;
+  /** intent=clarify 但已列候选时，指代消解最终要执行的动作（delete/update） */
+  resolve_intent?: "delete" | "update" | null;
   error?: string;
 }
 

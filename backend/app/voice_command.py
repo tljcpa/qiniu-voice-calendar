@@ -36,6 +36,7 @@ def _response(
     events: Optional[list] = None,
     pending_new_values: Optional[dict] = None,
     pending_conflict: Optional[dict] = None,
+    resolve_intent: Optional[str] = None,
 ) -> dict:
     """统一组装响应。
 
@@ -43,6 +44,8 @@ def _response(
     前端在下一轮 resolve 时原样带回，实现多轮澄清的指代消解。
     pending_conflict：add 冲突时回传待建事件与建议时间，
     前端在用户答"好/就这个"时走 confirm，实现冲突的对话接受。
+    resolve_intent：intent=clarify 但已列出候选时，告诉前端这一轮指代消解
+    最终要执行的动作（delete/update），让前端对 clarify 也能建 pending。
     """
     return {
         "intent": intent,
@@ -54,6 +57,7 @@ def _response(
         "events": events or [],
         "pending_new_values": pending_new_values,
         "pending_conflict": pending_conflict,
+        "resolve_intent": resolve_intent,
     }
 
 
@@ -544,6 +548,95 @@ def _parse_shift(shift: str) -> Optional[timedelta]:
     return total
 
 
+# 指代词/所有格（剥离后留下真正的内容关键词，如"那个会"/"我的会"→"会"）
+_DEMONSTRATIVES = [
+    "刚才那个", "之前那个", "刚才", "之前", "那一个", "这一个",
+    "那个", "这个", "那场", "这场", "那次", "这次", "那条", "这条", "那",
+    "我的", "你的", "他的", "她的", "咱的", "我",
+]
+
+
+def _strip_demonstratives(kw: Optional[str]) -> str:
+    """从目标描述里剥掉纯指代词，留下内容关键词。"""
+    if not kw:
+        return ""
+    out = kw
+    for d in _DEMONSTRATIVES:
+        out = out.replace(d, "")
+    return out.strip()
+
+
+def _infer_clarify_action(text: str) -> Optional[str]:
+    """从原话推断澄清背后的动作：删除 / 修改 / 无法判断。"""
+    for w in ("删", "取消", "去掉", "不要了", "清掉", "撤掉"):
+        if w in text:
+            return "delete"
+    for w in ("改", "挪", "推迟", "提前", "换到", "换成", "调整", "移到"):
+        if w in text:
+            return "update"
+    return None
+
+
+def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime) -> dict:
+    """澄清分支（修复纯指代断链）：
+
+    LLM 对纯指代（如"把那个会删了"）返回 clarify。此处推断动作（删/改），
+    剥离指代词得到内容关键词查库：唯一→直接执行；多个→列候选并带 resolve_intent
+    让前端建 pending，用户可选"第一个"完成；0 个→没找到。
+    无法判断动作（如缺时间的添加）→ 回原澄清问句。
+    """
+    action = _infer_clarify_action(text)
+    if action in ("delete", "update"):
+        keyword = _strip_demonstratives(parsed.get("target_query") or parsed.get("title"))
+        matches = crud.find_events(session, keyword=keyword or None)
+        new_values = parsed.get("new_values") or {}
+
+        if len(matches) == 1:
+            # 唯一候选 → 直接执行，不必再问
+            target = matches[0]
+            if action == "delete":
+                info = target.to_dict()
+                crud.delete_event(session, target.id)
+                return _response("delete", speech=f"已删除{target.title}", events=[info])
+            return _apply_update(target, new_values, session, now)
+
+        if len(matches) > 1:
+            candidates = [e.to_dict() for e in matches]
+            parts = [
+                f"{e.start_at.month}月{e.start_at.day}日{e.start_at.hour}点的{e.title}"
+                for e in matches
+            ]
+            verb = "删" if action == "delete" else "改"
+            speech = f"找到{len(matches)}个：" + "、".join(parts) + f"，要{verb}哪一个？"
+            return _response(
+                "clarify",
+                speech=speech,
+                ok=False,
+                needs_clarification=True,
+                clarification="目标不唯一",
+                candidates=candidates,
+                resolve_intent=action,
+                pending_new_values=new_values if action == "update" else None,
+            )
+
+        # 0 个匹配
+        return _response(
+            "clarify",
+            speech=f"没有找到{keyword or '相关'}的日程",
+            ok=False,
+        )
+
+    # 动作无法判断（如缺时间的添加）→ 原澄清问句
+    question = parsed.get("clarification") or "能再说详细一点吗？"
+    return _response(
+        "clarify",
+        speech=question,
+        ok=False,
+        needs_clarification=True,
+        clarification=question,
+    )
+
+
 def handle_command(
     text: str,
     session: Session,
@@ -583,14 +676,7 @@ def handle_command(
     if intent == "update":
         return _handle_update(parsed, session, now)
     if intent == "clarify":
-        question = parsed.get("clarification") or "能再说详细一点吗？"
-        return _response(
-            "clarify",
-            speech=question,
-            ok=False,
-            needs_clarification=True,
-            clarification=question,
-        )
+        return _handle_clarify(parsed, text, session, now)
     # unknown
     return _response(
         "unknown",
