@@ -1,4 +1,4 @@
-"""日历事件 REST API。
+"""日历事件 REST API（按登录用户作用域）。
 
 供前端 FullCalendar 拉取/手动增删改事件（语音之外的图形操作兜底）。
 """
@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import get_current_user
 from app.db import get_session
+from app.models import User
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -39,15 +41,20 @@ def list_events(
     start: Optional[datetime] = Query(default=None),
     end: Optional[datetime] = Query(default=None),
     session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
-    """按时间范围列事件（FullCalendar 视图拉取用）。"""
-    events = crud.list_events(session, start=start, end=end)
+    """按时间范围列当前用户的事件。"""
+    events = crud.list_events(session, start=start, end=end, owner_id=user.id)
     return [e.to_dict() for e in events]
 
 
 @router.post("", status_code=201)
-def create_event(body: EventCreate, session: Session = Depends(get_session)) -> dict:
-    """手动创建事件。"""
+def create_event(
+    body: EventCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """手动创建事件（归属当前用户）。"""
     ev = crud.create_event(
         session,
         title=body.title,
@@ -56,26 +63,34 @@ def create_event(body: EventCreate, session: Session = Depends(get_session)) -> 
         location=body.location,
         attendees=body.attendees,
         note=body.note,
+        owner_id=user.id,
     )
     return ev.to_dict()
 
 
 @router.patch("/{event_id}")
 def update_event(
-    event_id: int, body: EventUpdate, session: Session = Depends(get_session)
+    event_id: int,
+    body: EventUpdate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> dict:
-    """修改事件。只更新提供的字段。"""
+    """修改事件（仅限本人）。只更新提供的字段。"""
     fields = {k: v for k, v in body.model_dump().items() if v is not None}
-    ev = crud.update_event(session, event_id, **fields)
+    ev = crud.update_event(session, event_id, owner_id=user.id, **fields)
     if ev is None:
         raise HTTPException(status_code=404, detail="事件不存在")
     return ev.to_dict()
 
 
 @router.delete("/{event_id}")
-def delete_event(event_id: int, session: Session = Depends(get_session)) -> dict:
-    """删除事件。"""
-    ok = crud.delete_event(session, event_id)
+def delete_event(
+    event_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """删除事件（仅限本人）。"""
+    ok = crud.delete_event(session, event_id, owner_id=user.id)
     if not ok:
         raise HTTPException(status_code=404, detail="事件不存在")
     return {"ok": True, "deleted": event_id}

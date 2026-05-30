@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth as auth_api
 from app.api import events as events_api
 from app.api import reminders as reminders_api
 from app.api import speech as speech_api
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
         }
 
     # 业务路由装配
+    app.include_router(auth_api.router)
     app.include_router(speech_api.router)
     app.include_router(events_api.router)
     app.include_router(voice_api.router)

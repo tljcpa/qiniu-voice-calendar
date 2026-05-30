@@ -27,7 +27,11 @@ def client():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_get_session
-    return TestClient(app)
+    c = TestClient(app)
+    # 端点需鉴权：注册用户并带上 token
+    r = c.post("/api/auth/register", json={"username": "alice", "password": "secret123"})
+    c.headers.update({"Authorization": f"Bearer {r.json()['token']}"})
+    return c
 
 
 def test_create_and_list_event(client):

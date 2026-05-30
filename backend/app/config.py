@@ -40,6 +40,12 @@ class Settings:
             "DATABASE_URL", "sqlite:///./voice_calendar.db"
         )
 
+        # 认证（创新1）。JWT 签名密钥；生产由环境注入，开发用占位。
+        self.jwt_secret: str = os.getenv(
+            "JWT_SECRET", "dev-insecure-secret-change-me-in-production-0123456789"
+        )
+        self.jwt_expire_hours: int = int(os.getenv("JWT_EXPIRE_HOURS", "168"))
+
         # Azure Speech（核心语音能力，PR4 起使用）
         self.azure_speech_key: str = os.getenv("AZURE_SPEECH_KEY", "")
         self.azure_speech_region: str = os.getenv("AZURE_SPEECH_REGION", "eastus2")

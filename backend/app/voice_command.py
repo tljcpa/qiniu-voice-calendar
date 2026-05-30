@@ -84,7 +84,7 @@ def _month_range(year: int, month: int, label: str):
     return (start, end, label, True)
 
 
-def _create_one(session, title, start, location, attendees, reminder_min):
+def _create_one(session, title, start, location, attendees, reminder_min, owner_id=None):
     """创建单个事件，并按需挂提醒。供 add 与冲突确认复用。"""
     ev = crud.create_event(
         session,
@@ -92,6 +92,7 @@ def _create_one(session, title, start, location, attendees, reminder_min):
         start_at=start,
         location=location,
         attendees=attendees or [],
+        owner_id=owner_id,
     )
     if isinstance(reminder_min, int) and reminder_min > 0:
         crud.create_reminder(
@@ -102,7 +103,7 @@ def _create_one(session, title, start, location, attendees, reminder_min):
     return ev
 
 
-def handle_confirm(data: dict, accept_suggestion: bool, session: Session) -> dict:
+def handle_confirm(data: dict, accept_suggestion: bool, session: Session, owner_id=None) -> dict:
     """冲突后用户的对话决定：接受建议时间 or 坚持原时间强建。
 
     data 为上一轮 add 冲突回传的 pending_conflict。
@@ -124,7 +125,7 @@ def handle_confirm(data: dict, accept_suggestion: bool, session: Session) -> dic
         return _response("add", speech="信息不全，请重新说一次", ok=False)
 
     start = datetime.fromisoformat(start_iso)
-    ev = _create_one(session, title, start, location, attendees, reminder_min)
+    ev = _create_one(session, title, start, location, attendees, reminder_min, owner_id)
     if accept_suggestion:
         speech = f"好的，已改到{_fmt_dt(start)}的{title}"
     else:
@@ -132,7 +133,7 @@ def handle_confirm(data: dict, accept_suggestion: bool, session: Session) -> dic
     return _response("add", speech=speech, events=[ev.to_dict()])
 
 
-def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> dict:
+def _handle_add(parsed: dict, session: Session, now: datetime, force: bool, owner_id=None) -> dict:
     """添加事件。无时间→澄清；冲突→默认不建并给建议；循环→建多个。"""
     title = parsed.get("title") or "新日程"
     time_expr = parsed.get("time_expr")
@@ -164,7 +165,7 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
     if len(datetimes) == 1 and not force:
         start = datetimes[0]
         end = start + timedelta(hours=1)
-        conflict = check_conflict(session, start, end)
+        conflict = check_conflict(session, start, end, owner_id=owner_id)
         if conflict["has_conflict"]:
             clash_title = conflict["conflicts"][0]["title"]
             speech = f"这个时间和你的{clash_title}冲突了"
@@ -195,7 +196,7 @@ def _handle_add(parsed: dict, session: Session, now: datetime, force: bool) -> d
     # 创建（循环则多个）；若指定提前提醒分钟数，挂提醒
     created = []
     for start in datetimes:
-        ev = _create_one(session, title, start, location, attendees, reminder_min)
+        ev = _create_one(session, title, start, location, attendees, reminder_min, owner_id)
         created.append(ev.to_dict())
 
     if len(created) == 1:
@@ -281,11 +282,11 @@ def _view_range(time_expr, now):
     return (s, e, label, False)
 
 
-def _handle_view(parsed: dict, session: Session, now: datetime) -> dict:
+def _handle_view(parsed: dict, session: Session, now: datetime, owner_id=None) -> dict:
     """查询事件。支持单日 / 本周下周 / 整月范围。"""
     time_expr = parsed.get("time_expr")
     start, end, label, is_multiday = _view_range(time_expr, now)
-    events = crud.list_events(session, start=start, end=end)
+    events = crud.list_events(session, start=start, end=end, owner_id=owner_id)
     event_dicts = [e.to_dict() for e in events]
 
     if not events:
@@ -303,7 +304,7 @@ def _handle_view(parsed: dict, session: Session, now: datetime) -> dict:
     return _response("view", speech=speech, events=event_dicts)
 
 
-def _handle_delete(parsed: dict, session: Session, now: datetime) -> dict:
+def _handle_delete(parsed: dict, session: Session, now: datetime, owner_id=None) -> dict:
     """删除事件。按目标定位：0→没找到，1→删，≥2→列候选澄清。"""
     keyword = parsed.get("target_query") or parsed.get("title")
     # 若带时间，叠加当天范围缩小匹配
@@ -314,7 +315,7 @@ def _handle_delete(parsed: dict, session: Session, now: datetime) -> dict:
         if tr["ok"]:
             start, end = _day_range(datetime.fromisoformat(tr["datetimes"][0]))
 
-    matches = crud.find_events(session, keyword=keyword, start=start, end=end)
+    matches = crud.find_events(session, keyword=keyword, start=start, end=end, owner_id=owner_id)
     if not matches:
         return _response(
             "delete",
@@ -336,15 +337,15 @@ def _handle_delete(parsed: dict, session: Session, now: datetime) -> dict:
 
     target = matches[0]
     info = target.to_dict()
-    crud.delete_event(session, target.id)
+    crud.delete_event(session, target.id, owner_id=owner_id)
     return _response("delete", speech=f"已删除{target.title}", events=[info])
 
 
-def _handle_update(parsed: dict, session: Session, now: datetime) -> dict:
+def _handle_update(parsed: dict, session: Session, now: datetime, owner_id=None) -> dict:
     """修改事件。定位目标后应用新值（支持改到具体时间或整体平移）。"""
     keyword = parsed.get("target_query") or parsed.get("title")
     new_values = parsed.get("new_values") or {}
-    matches = crud.find_events(session, keyword=keyword)
+    matches = crud.find_events(session, keyword=keyword, owner_id=owner_id)
     if not matches:
         return _response("update", speech=f"没有找到{keyword or '相关'}的日程", ok=False)
     if len(matches) > 1:
@@ -361,10 +362,10 @@ def _handle_update(parsed: dict, session: Session, now: datetime) -> dict:
             pending_new_values=new_values,
         )
 
-    return _apply_update(matches[0], new_values, session, now)
+    return _apply_update(matches[0], new_values, session, now, owner_id)
 
 
-def _apply_update(target, new_values: dict, session: Session, now: datetime) -> dict:
+def _apply_update(target, new_values: dict, session: Session, now: datetime, owner_id=None) -> dict:
     """对已确定的目标事件应用新值（改到具体时间或整体平移）。"""
     new_start = None
 
@@ -396,9 +397,9 @@ def _apply_update(target, new_values: dict, session: Session, now: datetime) -> 
     if target.end_at is not None:
         duration = target.end_at - target.start_at
     crud.update_event(
-        session, target.id, start_at=new_start, end_at=new_start + duration
+        session, target.id, start_at=new_start, end_at=new_start + duration, owner_id=owner_id
     )
-    updated = crud.get_event(session, target.id)
+    updated = crud.get_event(session, target.id, owner_id=owner_id)
     return _response(
         "update",
         speech=f"已把{target.title}改到{_fmt_dt(new_start)}",
@@ -474,6 +475,7 @@ def handle_resolve(
     session: Session,
     now: Optional[datetime] = None,
     new_values: Optional[dict] = None,
+    owner_id=None,
 ) -> dict:
     """多轮澄清的第二步：根据用户指代从候选里选定目标并执行。
 
@@ -496,17 +498,17 @@ def handle_resolve(
         )
 
     chosen = candidates[idx]
-    event = crud.get_event(session, chosen["id"])
+    event = crud.get_event(session, chosen["id"], owner_id=owner_id)
     if event is None:
         return _response(intent, speech="这个日程已经不存在了", ok=False)
 
     if intent == "delete":
         info = event.to_dict()
-        crud.delete_event(session, event.id)
+        crud.delete_event(session, event.id, owner_id=owner_id)
         return _response("delete", speech=f"已删除{event.title}", events=[info])
 
     if intent == "update":
-        return _apply_update(event, new_values or {}, session, now)
+        return _apply_update(event, new_values or {}, session, now, owner_id)
 
     return _response(intent, speech="好的", ok=False)
 
@@ -577,7 +579,7 @@ def _infer_clarify_action(text: str) -> Optional[str]:
     return None
 
 
-def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime) -> dict:
+def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime, owner_id=None) -> dict:
     """澄清分支（修复纯指代断链）：
 
     LLM 对纯指代（如"把那个会删了"）返回 clarify。此处推断动作（删/改），
@@ -588,7 +590,7 @@ def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime) ->
     action = _infer_clarify_action(text)
     if action in ("delete", "update"):
         keyword = _strip_demonstratives(parsed.get("target_query") or parsed.get("title"))
-        matches = crud.find_events(session, keyword=keyword or None)
+        matches = crud.find_events(session, keyword=keyword or None, owner_id=owner_id)
         new_values = parsed.get("new_values") or {}
 
         if len(matches) == 1:
@@ -596,9 +598,9 @@ def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime) ->
             target = matches[0]
             if action == "delete":
                 info = target.to_dict()
-                crud.delete_event(session, target.id)
+                crud.delete_event(session, target.id, owner_id=owner_id)
                 return _response("delete", speech=f"已删除{target.title}", events=[info])
-            return _apply_update(target, new_values, session, now)
+            return _apply_update(target, new_values, session, now, owner_id)
 
         if len(matches) > 1:
             candidates = [e.to_dict() for e in matches]
@@ -643,6 +645,7 @@ def handle_command(
     now: Optional[datetime] = None,
     llm=None,
     force: bool = False,
+    owner_id=None,
 ) -> dict:
     """编排入口：一句话指令 → 结构化动作 + TTS 回应。
 
@@ -668,15 +671,15 @@ def handle_command(
     intent = parsed["intent"]
 
     if intent == "add":
-        return _handle_add(parsed, session, now, force)
+        return _handle_add(parsed, session, now, force, owner_id)
     if intent == "view":
-        return _handle_view(parsed, session, now)
+        return _handle_view(parsed, session, now, owner_id)
     if intent == "delete":
-        return _handle_delete(parsed, session, now)
+        return _handle_delete(parsed, session, now, owner_id)
     if intent == "update":
-        return _handle_update(parsed, session, now)
+        return _handle_update(parsed, session, now, owner_id)
     if intent == "clarify":
-        return _handle_clarify(parsed, text, session, now)
+        return _handle_clarify(parsed, text, session, now, owner_id)
     # unknown
     return _response(
         "unknown",

@@ -66,7 +66,10 @@ def client(monkeypatch):
     app.dependency_overrides[get_session] = override_get_session
     # 用小额度限流器，便于验证 429
     monkeypatch.setattr(ratelimit, "_cost_limiter", RateLimiter(max_calls=2, window=60))
-    return TestClient(app)
+    c = TestClient(app)
+    r = c.post("/api/auth/register", json={"username": "bob", "password": "secret123"})
+    c.headers.update({"Authorization": f"Bearer {r.json()['token']}"})
+    return c
 
 
 def test_command_rate_limited(client):

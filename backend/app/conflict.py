@@ -32,15 +32,16 @@ def find_overlaps(
     start_at: datetime,
     end_at: datetime,
     exclude_id: Optional[int] = None,
+    owner_id: Optional[int] = None,
 ) -> list[Event]:
-    """返回与 [start_at, end_at) 冲突的现有事件。
+    """返回与 [start_at, end_at) 冲突的现有事件（按 owner_id 作用域）。
 
     exclude_id：修改场景下排除事件自身。
     扫描范围限定在目标日前后一天，避免全表比较。
     """
     window_start = start_at - timedelta(days=1)
     window_end = end_at + timedelta(days=1)
-    candidates = list_events(session, start=window_start, end=window_end)
+    candidates = list_events(session, start=window_start, end=window_end, owner_id=owner_id)
 
     conflicts = []
     for ev in candidates:
@@ -70,6 +71,7 @@ def suggest_free_slot(
     start_at: datetime,
     end_at: datetime,
     exclude_id: Optional[int] = None,
+    owner_id: Optional[int] = None,
 ) -> Optional[datetime]:
     """从期望开始时间起向后找第一个无冲突且在工作时段内的空档起点。
 
@@ -83,7 +85,7 @@ def suggest_free_slot(
         candidate_end = cursor + duration
         in_hours = _within_work_hours(cursor, candidate_end)
         if in_hours:
-            clashes = find_overlaps(session, cursor, candidate_end, exclude_id)
+            clashes = find_overlaps(session, cursor, candidate_end, exclude_id, owner_id)
             if not clashes:
                 return cursor
             cursor = cursor + SLOT_STEP
@@ -99,6 +101,7 @@ def check_conflict(
     start_at: datetime,
     end_at: datetime,
     exclude_id: Optional[int] = None,
+    owner_id: Optional[int] = None,
 ) -> dict:
     """综合检测：返回是否冲突、冲突事件、建议时段。
 
@@ -109,11 +112,11 @@ def check_conflict(
             "suggestion": ISO字符串 或 None,
         }
     """
-    conflicts = find_overlaps(session, start_at, end_at, exclude_id)
+    conflicts = find_overlaps(session, start_at, end_at, exclude_id, owner_id)
     if not conflicts:
         return {"has_conflict": False, "conflicts": [], "suggestion": None}
 
-    suggestion = suggest_free_slot(session, start_at, end_at, exclude_id)
+    suggestion = suggest_free_slot(session, start_at, end_at, exclude_id, owner_id)
     suggestion_iso = None
     if suggestion is not None:
         suggestion_iso = suggestion.isoformat()

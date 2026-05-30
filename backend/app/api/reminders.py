@@ -10,19 +10,24 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import get_current_user
 from app.db import get_session
+from app.models import User
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
 
 @router.get("/due")
-def due_reminders(session: Session = Depends(get_session)) -> list[dict]:
-    """返回到期未发的提醒并标记已发，供前端弹通知。
+def due_reminders(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """返回当前用户到期未发的提醒并标记已发，供前端弹通知。
 
     每条含关联事件标题与开始时间，便于通知文案。
     """
     now = datetime.now()
-    due = crud.get_due_reminders(session, now)
+    due = crud.get_due_reminders(session, now, owner_id=user.id)
     result = []
     for r in due:
         event = crud.get_event(session, r.event_id)
