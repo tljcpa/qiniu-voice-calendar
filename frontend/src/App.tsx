@@ -82,6 +82,19 @@ export default function App() {
         newValues: resp.pending_new_values ?? null,
       });
     } else if (
+      // 纯指代澄清：intent=clarify 但后端已列候选并给出最终动作 → 也建 pending
+      resp.intent === "clarify" &&
+      resp.needs_clarification &&
+      resp.candidates.length > 0 &&
+      resp.resolve_intent
+    ) {
+      setPending({
+        kind: "clarify",
+        intent: resp.resolve_intent,
+        candidates: resp.candidates,
+        newValues: resp.pending_new_values ?? null,
+      });
+    } else if (
       resp.intent === "add" &&
       resp.needs_clarification &&
       resp.pending_conflict
