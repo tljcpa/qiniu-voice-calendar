@@ -454,7 +454,13 @@ def resolve_selection(text: str, candidates: list) -> Optional[int]:
         if period in text:
             hits = []
             for i, c in enumerate(candidates):
-                hour = datetime.fromisoformat(c["start_at"]).hour
+                start_at = c.get("start_at")
+                if not start_at:
+                    continue
+                try:
+                    hour = datetime.fromisoformat(start_at).hour
+                except (TypeError, ValueError):
+                    continue
                 if lo <= hour < hi:
                     hits.append(i)
             if len(hits) == 1:
