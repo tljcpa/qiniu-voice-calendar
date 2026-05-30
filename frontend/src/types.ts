@@ -14,7 +14,7 @@ export interface CalendarEvent {
 
 /** 语音指令返回（对应后端 voice_command.handle_command）。 */
 export interface CommandResponse {
-  intent: "add" | "delete" | "view" | "update" | "clarify" | "unknown";
+  intent: "add" | "delete" | "view" | "update" | "clarify" | "plan" | "unknown";
   ok: boolean;
   /** 给 TTS 播报的中文回应文案 */
   speech: string;
