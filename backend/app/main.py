@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth as auth_api
+from app.api import calendar_export as calendar_export_api
 from app.api import events as events_api
 from app.api import reminders as reminders_api
 from app.api import speech as speech_api
@@ -86,6 +87,7 @@ def create_app() -> FastAPI:
     app.include_router(events_api.router)
     app.include_router(voice_api.router)
     app.include_router(reminders_api.router)
+    app.include_router(calendar_export_api.router)
 
     return app
 

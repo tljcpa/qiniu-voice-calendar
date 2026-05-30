@@ -731,6 +731,34 @@ def handle_plan_confirm(plan: list, session: Session, owner_id=None) -> dict:
     return _response("plan", speech=f"已添加{len(created)}项日程", events=created)
 
 
+def _handle_export(parsed: dict) -> dict:
+    """处理导出/订阅意图：不查库，仅返回前端所需的 export_url 和范围标签。
+
+    实际 .ics 生成在 GET /api/calendar/export.ics 端点，此处只负责
+    把 time_expr 映射到 range 参数，并拼 speech 文案。
+    """
+    time_expr = parsed.get("time_expr") or ""
+
+    # 把中文时间范围词映射到端点 range 参数
+    if "今天" in time_expr or "今日" in time_expr:
+        range_val = "today"
+        label = "今日"
+    elif "月" in time_expr and "周" not in time_expr and "星期" not in time_expr:
+        range_val = "month"
+        label = "本月"
+    else:
+        # 本周为默认（含"本周""这周""下周""周"等表达，或用户未说范围）
+        range_val = "week"
+        label = "本周"
+
+    export_url = f"/api/calendar/export.ics?range={range_val}"
+    speech = f"已生成{label}日历文件，你可以下载到手机或订阅到日历应用"
+    resp = _response("export", speech=speech, ok=True)
+    resp["export_url"] = export_url
+    resp["export_label"] = label
+    return resp
+
+
 def handle_command(
     text: str,
     session: Session,
@@ -774,6 +802,8 @@ def handle_command(
         return _handle_clarify(parsed, text, session, now, owner_id)
     if intent == "plan":
         return _handle_plan(parsed, session, now, owner_id)
+    if intent == "export":
+        return _handle_export(parsed)
     # unknown
     return _response(
         "unknown",

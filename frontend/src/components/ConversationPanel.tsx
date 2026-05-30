@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types";
+import { downloadIcs } from "../api/client";
 import MicButton from "./MicButton";
 import Waveform from "./Waveform";
 
@@ -103,6 +104,51 @@ export default function ConversationPanel({
   );
 }
 
+/**
+ * export 意图后显示的操作区：下载 .ics 文件 + 复制 webcal:// 订阅链接。
+ * webcal:// 让手机日历 App（Google/Apple）直接订阅——这是"真实操作"的落点。
+ */
+function ExportActions({ url, label }: { url: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  // 从相对路径提取 range 参数，供 downloadIcs 调用
+  const rangeMatch = url.match(/range=(today|week|month)/);
+  const range = (rangeMatch?.[1] as "today" | "week" | "month") ?? "week";
+
+  function handleDownload() {
+    downloadIcs(range);
+  }
+
+  function handleCopyWebcal() {
+    // webcal:// 让移动日历 App 识别为订阅源
+    const webcalUrl =
+      window.location.origin.replace(/^https?/, "webcal") + url;
+    navigator.clipboard.writeText(webcalUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-2">
+      <button
+        type="button"
+        onClick={handleDownload}
+        className="rounded border border-accent-line bg-accent-soft px-3 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent hover:text-canvas"
+      >
+        下载 {label} .ics
+      </button>
+      <button
+        type="button"
+        onClick={handleCopyWebcal}
+        className="rounded border border-line bg-panel2 px-3 py-1 text-xs text-fg-muted transition-colors hover:text-fg"
+      >
+        {copied ? "已复制" : "复制订阅链接 (webcal)"}
+      </button>
+    </div>
+  );
+}
+
 function Bubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
   return (
@@ -141,6 +187,10 @@ function Bubble({ msg }: { msg: ChatMessage }) {
                 </li>
               ))}
             </ul>
+          )}
+          {/* export 意图：显示下载 .ics 和 webcal 订阅两个操作按钮 */}
+          {msg.export_url && (
+            <ExportActions url={msg.export_url} label={msg.export_label ?? "本周"} />
           )}
         </div>
       </div>

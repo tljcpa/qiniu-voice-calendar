@@ -3,6 +3,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { CalendarEvent } from "../types";
+import { downloadIcs } from "../api/client";
 
 interface Props {
   events: CalendarEvent[];
@@ -47,6 +48,25 @@ export default function CalendarView({ events, onEventClick }: Props) {
         <span className="ml-auto font-mono text-[11px] text-fg-dim">
           {events.length} 个日程
         </span>
+        {/* 直接导出按钮：不需要语音，图形入口 */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => downloadIcs("week")}
+            title="下载本周日历 .ics"
+            className="rounded border border-line bg-panel2 px-2 py-0.5 font-mono text-[10px] text-fg-dim transition-colors hover:border-accent-line hover:text-accent"
+          >
+            导出周
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadIcs("month")}
+            title="下载本月日历 .ics"
+            className="rounded border border-line bg-panel2 px-2 py-0.5 font-mono text-[10px] text-fg-dim transition-colors hover:border-accent-line hover:text-accent"
+          >
+            导出月
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 p-3">
         <FullCalendar
