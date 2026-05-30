@@ -12,6 +12,8 @@ git pull
 echo "==> 构建前端静态产物"
 cd "$ROOT/frontend"
 npm install
+# emptyOutDir=false（保留 dist/demo 自托管视频），故手动清理旧哈希产物避免堆积
+rm -rf dist/assets dist/index.html 2>/dev/null || true
 npm run build
 
 echo "==> 构建并启动后端容器（project=voice-calendar, 端口 8081）"
