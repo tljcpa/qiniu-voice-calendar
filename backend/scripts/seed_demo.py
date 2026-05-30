@@ -13,10 +13,16 @@
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 
 BASE = os.getenv("BASE", "http://127.0.0.1:8081")
+# 演示账户（端点需鉴权；幂等：已存在则登录）
+DEMO_USER = os.getenv("DEMO_USER", "demo")
+DEMO_PASS = os.getenv("DEMO_PASS", "demo123456")
+
+_token = None
 
 
 def _req(method: str, path: str, body=None):
@@ -25,6 +31,8 @@ def _req(method: str, path: str, body=None):
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
+    if _token:
+        headers["Authorization"] = f"Bearer {_token}"
     req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req, timeout=15) as resp:
         raw = resp.read().decode("utf-8")
@@ -33,12 +41,26 @@ def _req(method: str, path: str, body=None):
         return None
 
 
+def _ensure_auth():
+    """注册或登录演示账户，拿到 token。"""
+    global _token
+    try:
+        res = _req("POST", "/api/auth/register", {"username": DEMO_USER, "password": DEMO_PASS})
+    except urllib.error.HTTPError as e:
+        if e.code == 409:  # 已存在 → 登录
+            res = _req("POST", "/api/auth/login", {"username": DEMO_USER, "password": DEMO_PASS})
+        else:
+            raise
+    _token = res["token"]
+
+
 def _at(base_day: datetime, day_offset: int, hour: int, minute: int) -> str:
     d = base_day + timedelta(days=day_offset)
     return d.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
 
 
 def main() -> int:
+    _ensure_auth()  # 端点需鉴权，先拿演示账户 token
     now = datetime.now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 

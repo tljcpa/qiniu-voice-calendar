@@ -4,19 +4,63 @@ import type { CalendarEvent, CommandResponse, SpeechToken } from "../types";
 // 同源部署时走相对路径；开发期由 vite proxy 转发到 8081。
 const BASE = "";
 
-async function handle<T>(resp: Response): Promise<T> {
+// 登录态：token 注入 Authorization；401（且曾登录）触发登出回调。
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+export function setOnUnauthorized(cb: () => void): void {
+  onUnauthorized = cb;
+}
+
+async function req<T>(url: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    ...((init.headers as Record<string, string>) || {}),
+  };
+  if (init.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  const resp = await fetch(`${BASE}${url}`, { ...init, headers });
+  // 曾登录却收到 401 → token 失效，触发登出（登录请求本身无 token，不触发）
+  if (resp.status === 401 && authToken && onUnauthorized) {
+    onUnauthorized();
+  }
   if (!resp.ok) {
     const detail = await resp.text();
     throw new Error(`API ${resp.status}: ${detail}`);
   }
-  return (await resp.json()) as T;
+  const text = await resp.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+export interface AuthResult {
+  token: string;
+  user: { id: number; username: string };
+}
+
+/** 注册新账户。 */
+export function register(username: string, password: string): Promise<AuthResult> {
+  return req<AuthResult>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+/** 登录。 */
+export function login(username: string, password: string): Promise<AuthResult> {
+  return req<AuthResult>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
 }
 
 /** 按时间范围拉取事件（FullCalendar 视图用）。 */
-export async function fetchEvents(
-  start?: string,
-  end?: string
-): Promise<CalendarEvent[]> {
+export function fetchEvents(start?: string, end?: string): Promise<CalendarEvent[]> {
   const params = new URLSearchParams();
   if (start) {
     params.set("start", start);
@@ -25,68 +69,47 @@ export async function fetchEvents(
     params.set("end", end);
   }
   const qs = params.toString();
-  const url = qs ? `${BASE}/api/events?${qs}` : `${BASE}/api/events`;
-  const resp = await fetch(url);
-  return handle<CalendarEvent[]>(resp);
+  return req<CalendarEvent[]>(qs ? `/api/events?${qs}` : "/api/events");
 }
 
 /** 发送一条语音指令文本，返回执行结果与回应文案。 */
-export async function sendCommand(
-  text: string,
-  force = false
-): Promise<CommandResponse> {
-  const resp = await fetch(`${BASE}/api/voice/command`, {
+export function sendCommand(text: string, force = false): Promise<CommandResponse> {
+  return req<CommandResponse>("/api/voice/command", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, force }),
   });
-  return handle<CommandResponse>(resp);
 }
 
 /** 多轮澄清第二步：带上一轮意图与候选，由用户指代选定并执行。 */
-export async function resolveCommand(
+export function resolveCommand(
   text: string,
   intent: string,
   candidates: CalendarEvent[],
   newValues: Record<string, unknown> | null | undefined
 ): Promise<CommandResponse> {
-  const resp = await fetch(`${BASE}/api/voice/resolve`, {
+  return req<CommandResponse>("/api/voice/resolve", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text,
-      intent,
-      candidates,
-      new_values: newValues ?? null,
-    }),
+    body: JSON.stringify({ text, intent, candidates, new_values: newValues ?? null }),
   });
-  return handle<CommandResponse>(resp);
 }
 
 /** 删除事件（图形化管理用）。 */
-export async function deleteEvent(id: number): Promise<void> {
-  const resp = await fetch(`${BASE}/api/events/${id}`, { method: "DELETE" });
-  if (!resp.ok) {
-    const detail = await resp.text();
-    throw new Error(`API ${resp.status}: ${detail}`);
-  }
+export function deleteEvent(id: number): Promise<void> {
+  return req<void>(`/api/events/${id}`, { method: "DELETE" });
 }
 
 /** 冲突确认：接受建议时间 or 坚持原时间强建。 */
-export async function confirmCommand(
+export function confirmCommand(
   data: Record<string, unknown>,
   acceptSuggestion: boolean
 ): Promise<CommandResponse> {
-  const resp = await fetch(`${BASE}/api/voice/confirm`, {
+  return req<CommandResponse>("/api/voice/confirm", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data, accept_suggestion: acceptSuggestion }),
   });
-  return handle<CommandResponse>(resp);
 }
 
 /** 取 Azure Speech 短时令牌（浏览器 SDK 用）。 */
-export async function fetchSpeechToken(): Promise<SpeechToken> {
-  const resp = await fetch(`${BASE}/api/speech/token`, { method: "POST" });
-  return handle<SpeechToken>(resp);
+export function fetchSpeechToken(): Promise<SpeechToken> {
+  return req<SpeechToken>("/api/speech/token", { method: "POST" });
 }

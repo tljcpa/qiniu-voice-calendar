@@ -28,7 +28,7 @@ describe("fetchEvents", () => {
   it("无范围时请求 /api/events", async () => {
     const fn = mockFetch([]);
     await fetchEvents();
-    expect(fn).toHaveBeenCalledWith("/api/events");
+    expect(fn.mock.calls[0][0]).toBe("/api/events");
   });
 
   it("带范围时拼 query", async () => {

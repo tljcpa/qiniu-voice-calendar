@@ -10,8 +10,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.db import get_session
 from app.llm_provider import LLMError, get_llm
+from app.models import User
 from app.ratelimit import cost_rate_limit
 from app.voice_command import handle_command, handle_confirm, handle_resolve
 
@@ -49,9 +51,10 @@ class ConfirmRequest(BaseModel):
 def command(
     body: CommandRequest,
     session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
     _: None = Depends(cost_rate_limit),
 ) -> dict:
-    """处理一条语音指令文本。"""
+    """处理一条语音指令文本（按登录用户作用域）。"""
     try:
         llm = get_llm()
     except LLMError as exc:
@@ -66,11 +69,15 @@ def command(
             "candidates": [],
             "events": [],
         }
-    return handle_command(body.text, session=session, llm=llm, force=body.force)
+    return handle_command(body.text, session=session, llm=llm, force=body.force, owner_id=user.id)
 
 
 @router.post("/resolve")
-def resolve(body: ResolveRequest, session: Session = Depends(get_session)) -> dict:
+def resolve(
+    body: ResolveRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> dict:
     """多轮澄清第二步：用户指代（“第一个”“下午那个”）选定候选并执行。
 
     纯确定性选择，不需 LLM，故不依赖凭证。
@@ -81,12 +88,17 @@ def resolve(body: ResolveRequest, session: Session = Depends(get_session)) -> di
         candidates=body.candidates,
         session=session,
         new_values=body.new_values,
+        owner_id=user.id,
     )
 
 
 @router.post("/confirm")
-def confirm(body: ConfirmRequest, session: Session = Depends(get_session)) -> dict:
+def confirm(
+    body: ConfirmRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> dict:
     """冲突后的对话决定：接受建议时间或坚持原时间。纯确定性，不需 LLM。"""
     return handle_confirm(
-        body.data, accept_suggestion=body.accept_suggestion, session=session
+        body.data, accept_suggestion=body.accept_suggestion, session=session, owner_id=user.id
     )

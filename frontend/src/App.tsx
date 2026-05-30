@@ -9,7 +9,9 @@ import {
   sendCommand,
 } from "./api/client";
 import EventDetail from "./components/EventDetail";
+import AuthScreen from "./components/AuthScreen";
 import { classifyConflictReply } from "./lib/intent";
+import { useAuth } from "./hooks/useAuth";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useReminders } from "./hooks/useReminders";
@@ -41,6 +43,7 @@ function nextId() {
 }
 
 export default function App() {
+  const auth = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
@@ -63,9 +66,15 @@ export default function App() {
     }
   }
 
+  // 登录后（及刷新带 token 时）加载事件；登出清空
   useEffect(() => {
-    refreshEvents();
-  }, []);
+    if (auth.token) {
+      refreshEvents();
+    } else {
+      setEvents([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.token]);
 
   function appendMessage(msg: ChatMessage) {
     setMessages((prev) => [...prev, msg]);
@@ -232,6 +241,11 @@ export default function App() {
     hint = "当前环境不支持麦克风，请用下方文字输入";
   }
 
+  // 未登录 → 登录/注册页（所有 hook 已在上方按固定顺序调用，此处再分支渲染）
+  if (!auth.user) {
+    return <AuthScreen onLogin={auth.login} onRegister={auth.register} />;
+  }
+
   return (
     <div className="flex h-full flex-col bg-canvas">
       <Header
@@ -241,6 +255,8 @@ export default function App() {
         remindersOn={reminders.permission === "granted"}
         onEnableReminders={reminders.enable}
         engine={speech.engine}
+        username={auth.user.username}
+        onLogout={auth.logout}
       />
       {/* 小屏：对话/日历 标签切换（大屏并排，无此栏） */}
       <div className="flex border-b border-line lg:hidden">
@@ -325,6 +341,8 @@ interface HeaderProps {
   remindersOn: boolean;
   onEnableReminders: () => void;
   engine: "azure" | "web" | null;
+  username: string;
+  onLogout: () => void;
 }
 
 function Header({
@@ -334,6 +352,8 @@ function Header({
   remindersOn,
   onEnableReminders,
   engine,
+  username,
+  onLogout,
 }: HeaderProps) {
   let engineLabel = "Azure 语音";
   if (engine === "web") {
@@ -365,6 +385,17 @@ function Header({
           onClick={onToggleTts}
           icon={<SpeakerIcon muted={!ttsEnabled} pulsing={speaking} />}
         />
+        {/* 当前用户 + 登出 */}
+        <span className="hidden font-mono text-[11px] text-fg-dim sm:inline">
+          {username}
+        </span>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="rounded border border-line bg-panel2 px-2.5 py-1 text-xs text-fg-muted hover:text-fg"
+        >
+          登出
+        </button>
       </div>
     </header>
   );
