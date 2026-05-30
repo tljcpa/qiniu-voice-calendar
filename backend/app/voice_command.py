@@ -24,6 +24,10 @@ from app import crud
 from app.conflict import check_conflict
 from app.intent_parser import parse_intent
 from app.time_parser import _monday_of, parse_time
+from app.conflict import SLOT_STEP, WORK_START, _within_work_hours
+
+# 规划项避让扫描的最大跨度
+MAX_PLAN_SCAN = timedelta(days=10)
 
 
 def _response(
@@ -37,6 +41,7 @@ def _response(
     pending_new_values: Optional[dict] = None,
     pending_conflict: Optional[dict] = None,
     resolve_intent: Optional[str] = None,
+    pending_plan: Optional[list] = None,
 ) -> dict:
     """统一组装响应。
 
@@ -58,6 +63,7 @@ def _response(
         "pending_new_values": pending_new_values,
         "pending_conflict": pending_conflict,
         "resolve_intent": resolve_intent,
+        "pending_plan": pending_plan,
     }
 
 
@@ -639,6 +645,92 @@ def _handle_clarify(parsed: dict, text: str, session: Session, now: datetime, ow
     )
 
 
+
+def _find_plan_slot(session, start, duration, owner_id, placed):
+    """为规划项找一个既不与库内事件冲突、也不与同计划已放项重叠的起点。
+
+    placed 为本次计划已确定的 (start, end) 列表（尚未入库）。
+    从期望起点起 15 分钟步进、限工作时段扫描；找不到则退回原起点。
+    """
+    cursor = start
+    limit = start + MAX_PLAN_SCAN
+    while cursor <= limit:
+        cand_end = cursor + duration
+        if _within_work_hours(cursor, cand_end):
+            db_clash = check_conflict(session, cursor, cand_end, owner_id=owner_id)["has_conflict"]
+            placed_clash = any(cursor < pe and ps < cand_end for ps, pe in placed)
+            if not db_clash and not placed_clash:
+                return cursor
+            cursor = cursor + SLOT_STEP
+        else:
+            next_day = (cursor + timedelta(days=1)).date()
+            cursor = datetime.combine(next_day, WORK_START)
+    return start
+
+
+def _handle_plan(parsed: dict, session: Session, now: datetime, owner_id=None) -> dict:
+    """多轮规划 agent：把目标拆成的多项逐一定位、自动避冲突，给出待确认计划。
+
+    plan_items 来自意图解析（一次 LLM 调用即拆解）。此处不再调 LLM：
+    解析每项 time_expr → 避让库内事件与同计划其它项 → 汇总成计划，待用户确认。
+    """
+    items = parsed.get("plan_items") or []
+    if not items:
+        return _response("plan", speech="没听清要安排什么，可以说得具体些", ok=False)
+
+    placed = []  # 已暂定的 (start, end)
+    plan = []
+    for it in items:
+        tr = parse_time(it["time_expr"], now=now)
+        if not tr["ok"]:
+            continue
+        desired = datetime.fromisoformat(tr["datetimes"][0])
+        dur = timedelta(minutes=int(it.get("duration_minutes") or 60))
+        slot = _find_plan_slot(session, desired, dur, owner_id, placed)
+        adjusted = slot != desired
+        placed.append((slot, slot + dur))
+        plan.append({
+            "title": it["title"],
+            "start_at": slot.isoformat(),
+            "end_at": (slot + dur).isoformat(),
+            "adjusted": adjusted,
+        })
+
+    if not plan:
+        return _response("plan", speech="没能排出合适的时间，换个说法再试试", ok=False)
+
+    parts = []
+    for pitem in plan:
+        s = datetime.fromisoformat(pitem["start_at"])
+        tag = "（已避开冲突）" if pitem["adjusted"] else ""
+        parts.append(f"{_fmt_dt(s)}的{pitem['title']}{tag}")
+    speech = f"我为你排了{len(plan)}项：" + "、".join(parts) + "，确认添加吗？"
+    return _response(
+        "plan",
+        speech=speech,
+        ok=False,
+        needs_clarification=True,
+        clarification="待确认计划",
+        pending_plan=plan,
+    )
+
+
+def handle_plan_confirm(plan: list, session: Session, owner_id=None) -> dict:
+    """确认计划：把待定的多项一次性入库。不调 LLM。"""
+    if not plan:
+        return _response("plan", speech="没有待确认的计划", ok=False)
+    created = []
+    for pitem in plan:
+        start = datetime.fromisoformat(pitem["start_at"])
+        end = datetime.fromisoformat(pitem["end_at"]) if pitem.get("end_at") else None
+        ev = crud.create_event(
+            session, title=pitem.get("title") or "日程", start_at=start,
+            end_at=end, owner_id=owner_id,
+        )
+        created.append(ev.to_dict())
+    return _response("plan", speech=f"已添加{len(created)}项日程", events=created)
+
+
 def handle_command(
     text: str,
     session: Session,
@@ -680,6 +772,8 @@ def handle_command(
         return _handle_update(parsed, session, now, owner_id)
     if intent == "clarify":
         return _handle_clarify(parsed, text, session, now, owner_id)
+    if intent == "plan":
+        return _handle_plan(parsed, session, now, owner_id)
     # unknown
     return _response(
         "unknown",

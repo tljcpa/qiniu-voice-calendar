@@ -3,6 +3,7 @@ import CalendarView from "./components/CalendarView";
 import ConversationPanel from "./components/ConversationPanel";
 import {
   confirmCommand,
+  confirmPlan,
   deleteEvent,
   fetchEvents,
   resolveCommand,
@@ -27,7 +28,8 @@ type Pending =
       candidates: CalendarEvent[];
       newValues: Record<string, unknown> | null;
     }
-  | { kind: "conflict"; data: Record<string, unknown> };
+  | { kind: "conflict"; data: Record<string, unknown> }
+  | { kind: "plan"; plan: Record<string, unknown>[] };
 
 
 const WELCOME: ChatMessage = {
@@ -109,6 +111,13 @@ export default function App() {
       resp.pending_conflict
     ) {
       setPending({ kind: "conflict", data: resp.pending_conflict });
+    } else if (
+      resp.intent === "plan" &&
+      resp.needs_clarification &&
+      resp.pending_plan &&
+      resp.pending_plan.length > 0
+    ) {
+      setPending({ kind: "plan", plan: resp.pending_plan });
     } else {
       setPending(null);
     }
@@ -126,6 +135,15 @@ export default function App() {
         pending.candidates,
         pending.newValues
       );
+    }
+    if (pending.kind === "plan") {
+      // 规划待确认：肯定/"确认/添加"→创建全部；否则当新指令
+      const ok =
+        classifyConflictReply(text) === "accept" ||
+        text.includes("确认") ||
+        text.includes("添加") ||
+        text.includes("都加");
+      return ok ? confirmPlan(pending.plan) : null;
     }
     // conflict：分类回复——接受建议 / 坚持原时间 / 其它(当新指令)
     const reply = classifyConflictReply(text);

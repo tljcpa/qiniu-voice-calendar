@@ -15,7 +15,12 @@ from app.db import get_session
 from app.llm_provider import LLMError, get_llm
 from app.models import User
 from app.ratelimit import cost_rate_limit
-from app.voice_command import handle_command, handle_confirm, handle_resolve
+from app.voice_command import (
+    handle_command,
+    handle_confirm,
+    handle_plan_confirm,
+    handle_resolve,
+)
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 logger = logging.getLogger("voice")
@@ -45,6 +50,12 @@ class ConfirmRequest(BaseModel):
     data: dict
     # True=接受建议时间；False=坚持原时间强建
     accept_suggestion: bool
+
+
+class PlanConfirmRequest(BaseModel):
+    """规划确认：带上一轮规划回传的 pending_plan，一次性入库。"""
+
+    plan: list
 
 
 @router.post("/command")
@@ -102,3 +113,13 @@ def confirm(
     return handle_confirm(
         body.data, accept_suggestion=body.accept_suggestion, session=session, owner_id=user.id
     )
+
+
+@router.post("/plan/confirm")
+def plan_confirm(
+    body: PlanConfirmRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """确认多轮规划，一次性创建全部待定事件。纯本地，不调 LLM。"""
+    return handle_plan_confirm(body.plan, session=session, owner_id=user.id)
