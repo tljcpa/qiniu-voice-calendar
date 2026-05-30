@@ -109,6 +109,16 @@ export function confirmCommand(
   });
 }
 
+/** 确认多轮规划：一次性创建计划里的全部事件。 */
+export function confirmPlan(
+  plan: Record<string, unknown>[]
+): Promise<CommandResponse> {
+  return req<CommandResponse>("/api/voice/plan/confirm", {
+    method: "POST",
+    body: JSON.stringify({ plan }),
+  });
+}
+
 /** 取 Azure Speech 短时令牌（浏览器 SDK 用）。 */
 export function fetchSpeechToken(): Promise<SpeechToken> {
   return req<SpeechToken>("/api/speech/token", { method: "POST" });

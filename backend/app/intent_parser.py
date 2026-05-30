@@ -15,7 +15,7 @@ from typing import Optional
 from app.llm_provider import LLMProvider, get_llm
 
 # 允许的意图集合。LLM 返回集合外的值一律归 unknown。
-ALLOWED_INTENTS = {"add", "delete", "view", "update", "clarify", "unknown"}
+ALLOWED_INTENTS = {"add", "delete", "view", "update", "clarify", "plan", "unknown"}
 
 
 INTENT_SYSTEM_PROMPT = """\
@@ -23,9 +23,10 @@ INTENT_SYSTEM_PROMPT = """\
 
 只输出一个 JSON 对象，字段如下（缺失项按规则填默认值，不要臆测）：
 {
-  "intent": "add | delete | view | update | clarify | unknown",
+  "intent": "add | delete | view | update | clarify | plan | unknown",
   "confidence": 0~1 的小数，你对该意图判断的把握,
   "title": "事件标题，如'产品评审会'；无则 null",
+  "plan_items": "intent=plan 时，把目标拆成多个待安排事件的数组，每项 {\\"title\\":\\"...\\",\\"time_expr\\":\\"该项的大致时间原文，如'下周一下午'\\",\\"duration_minutes\\":时长整数}；其它意图为 null",
   "time_expr": "用户说的原始时间表达原文，如'明天下午三点''下周一九点半'；不要换算成日期，无则 null",
   "location": "地点，无则 null",
   "attendees": ["参与人列表，无则空数组"],
@@ -46,6 +47,9 @@ INTENT_SYSTEM_PROMPT = """\
   由系统查库决定要不要澄清。不要替系统编造"你有多个X"这类你无法知道的事实。
 - 仅当用户用**纯指代且没有任何具体名称**（如"那个""刚才那个""之前那个"）→ clarify。
 - add 缺时间也用 clarify，在 clarification 写要追问的话，missing 列缺失槽位。
+- **多事件规划目标** → plan：当用户给的是一个需要拆成**多个**日程的目标（如"下周安排三场论文复习""这周想健身三次每次一小时""帮我规划周末两天的复习"），
+  返回 intent=plan，并在 plan_items 里给出每一项的 {title, time_expr, duration_minutes}。
+  各项 time_expr 给不同的大致时段（分散开，便于避免互相冲突），duration_minutes 按用户说的时长或默认 60。
 - 与日历无关或完全听不懂 → unknown。
 - time_expr 必须是用户原话里的时间短语，禁止你自己换算成具体日期。
 
@@ -67,6 +71,9 @@ few-shot 示例：
 
 用户：帮我加个会
 输出：{"intent":"clarify","confidence":0.7,"title":"会","time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":null,"new_values":null,"clarification":"这个会安排在什么时间？","missing":["time"]}
+
+用户：帮我安排下周三场论文复习，每次两小时，避开已有的会
+输出：{"intent":"plan","confidence":0.9,"title":null,"time_expr":null,"location":null,"attendees":[],"reminder_before_minutes":null,"target_query":null,"new_values":null,"clarification":null,"missing":[],"plan_items":[{"title":"论文复习","time_expr":"下周一下午两点","duration_minutes":120},{"title":"论文复习","time_expr":"下周三下午两点","duration_minutes":120},{"title":"论文复习","time_expr":"下周五下午两点","duration_minutes":120}]}
 """
 
 
@@ -117,6 +124,25 @@ def _normalize(raw: dict) -> dict:
         result["missing"] = [str(m) for m in missing]
     else:
         result["missing"] = []
+
+    # 规划项（intent=plan）：规整为干净的 {title,time_expr,duration_minutes} 列表
+    plan_items = raw.get("plan_items")
+    clean_items = []
+    if isinstance(plan_items, list):
+        for it in plan_items:
+            if not isinstance(it, dict):
+                continue
+            title = it.get("title") or "日程"
+            time_expr = it.get("time_expr")
+            if not time_expr:
+                continue
+            dur = it.get("duration_minutes")
+            if not isinstance(dur, int) or dur <= 0:
+                dur = 60
+            clean_items.append(
+                {"title": str(title), "time_expr": str(time_expr), "duration_minutes": dur}
+            )
+    result["plan_items"] = clean_items
 
     return result
 

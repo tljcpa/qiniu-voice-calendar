@@ -14,7 +14,7 @@ export interface CalendarEvent {
 
 /** 语音指令返回（对应后端 voice_command.handle_command）。 */
 export interface CommandResponse {
-  intent: "add" | "delete" | "view" | "update" | "clarify" | "unknown";
+  intent: "add" | "delete" | "view" | "update" | "clarify" | "plan" | "unknown";
   ok: boolean;
   /** 给 TTS 播报的中文回应文案 */
   speech: string;
@@ -30,6 +30,8 @@ export interface CommandResponse {
   pending_conflict?: Record<string, unknown> | null;
   /** intent=clarify 但已列候选时，指代消解最终要执行的动作（delete/update） */
   resolve_intent?: "delete" | "update" | null;
+  /** intent=plan 待确认的多事件计划，用户"好/确认"时回传创建 */
+  pending_plan?: Record<string, unknown>[] | null;
   error?: string;
 }
 
